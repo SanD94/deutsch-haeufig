@@ -12,7 +12,7 @@ dist/
 # Project
 app.db
 app.db-journal
-data/dwds_cache/
+data/
 
 # Editor / OS
 .DS_Store

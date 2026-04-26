@@ -30,9 +30,7 @@ class Word(Base):
     plural: Mapped[str | None] = mapped_column(String(128), nullable=True)
     source_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
-    senses: Mapped[list[Sense]] = relationship(
-        back_populates="word", cascade="all, delete-orphan"
-    )
+    senses: Mapped[list[Sense]] = relationship(back_populates="word", cascade="all, delete-orphan")
 
 
 class Sense(Base):

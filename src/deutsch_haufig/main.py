@@ -1,25 +1,22 @@
 """FastAPI entrypoint for deutsch-haufig.
 
-Exposes the M0 demo surface:
+Exposes:
 
-  - `GET /`        → "Hello, Deutschland" landing page.
-  - `GET /browse`  → empty browse page (filled in M1).
+  - ``GET /``        → "Hello, Deutschland" landing page (M0).
+  - ``GET /browse``  → seed-corpus browse with vocabeo-style filters (M1).
 """
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 
 from deutsch_haufig.db import init_db
-
-TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+from deutsch_haufig.routes.browse import router as browse_router
+from deutsch_haufig.templating import templates
 
 
 @asynccontextmanager
@@ -33,16 +30,9 @@ def create_app() -> FastAPI:
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request) -> HTMLResponse:
-        return templates.TemplateResponse(
-            request, "index.html", {"title": "Hello, Deutschland"}
-        )
+        return templates.TemplateResponse(request, "index.html", {"title": "Hello, Deutschland"})
 
-    @app.get("/browse", response_class=HTMLResponse)
-    def browse(request: Request) -> HTMLResponse:
-        return templates.TemplateResponse(
-            request, "browse.html", {"title": "Browse", "words": []}
-        )
-
+    app.include_router(browse_router)
     return app
 
 
@@ -50,7 +40,7 @@ app = create_app()
 
 
 def run() -> None:
-    """Console-script entry: `uv run web`."""
+    """Console-script entry: ``uv run web``."""
     import uvicorn
 
     uvicorn.run(

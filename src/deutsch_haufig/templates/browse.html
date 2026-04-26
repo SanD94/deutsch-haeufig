@@ -1,13 +1,82 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Browse</h1>
+<h1>Browse <small>({{ total }} Wörter)</small></h1>
+
+<form method="get" action="/browse" class="filters">
+    <label>
+        Suche
+        <input type="search" name="q" value="{{ filters.q or '' }}" placeholder="Lemma…">
+    </label>
+
+    <label>
+        Niveau
+        <select name="level">
+            <option value="">Alle</option>
+            {% for lvl in known_levels %}
+            <option value="{{ lvl }}" {% if filters.level == lvl %}selected{% endif %}>{{ lvl }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>
+        Wortart
+        <select name="pos">
+            <option value="">Alle</option>
+            {% for p in known_pos %}
+            <option value="{{ p }}" {% if filters.pos == p %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>
+        Kategorie
+        <select name="category">
+            <option value="">Alle</option>
+            {% for cat in known_categories %}
+            <option value="{{ cat }}" {% if filters.category == cat %}selected{% endif %}>{{ cat }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>
+        Häufigkeit
+        <select name="frequency">
+            <option value="">Alle</option>
+            {% for f in known_frequencies %}
+            <option value="{{ f }}" {% if filters.frequency == f %}selected{% endif %}>{{ f }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <button type="submit">Filtern</button>
+    <a href="/browse">Zurücksetzen</a>
+</form>
+
 {% if words %}
-<ul>
-    {% for word in words %}
-    <li>{{ word.lemma }}</li>
-    {% endfor %}
-</ul>
+<table class="words">
+    <thead>
+        <tr>
+            <th>Wort</th>
+            <th>Wortart</th>
+            <th>Niveau</th>
+            <th>Häufigkeit</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for word in words %}
+        <tr>
+            <td>
+                {% if word.article %}<em>{{ word.article }}</em> {% endif %}
+                <strong>{{ word.lemma }}</strong>
+            </td>
+            <td>{{ word.pos }}</td>
+            <td>{{ word.level or '—' }}</td>
+            <td>{{ word.frequency }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 {% else %}
-<p><em>Noch keine Wörter — `uv run ingest` ausführen, um den Korpus zu laden.</em></p>
+<p><em>Keine Treffer. <code>uv run ingest</code> ausführen, um den Korpus zu laden.</em></p>
 {% endif %}
 {% endblock %}

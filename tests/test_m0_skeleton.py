@@ -77,8 +77,7 @@ def test_metadata_creates_empty_schema(tmp_path) -> None:
 
     tables = set(inspect(engine).get_table_names())
     # The PLAN §3 entities should at minimum be present after create_all.
-    expected = {"words", "senses", "examples", "dialogues", "users",
-                "review_cards", "review_logs"}
+    expected = {"words", "senses", "examples", "dialogues", "users", "review_cards", "review_logs"}
     missing = expected - tables
     assert not missing, f"missing tables after create_all: {sorted(missing)}"
 
