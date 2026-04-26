@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Browse</h1>
+{% if words %}
+<ul>
+    {% for word in words %}
+    <li>{{ word.lemma }}</li>
+    {% endfor %}
+</ul>
+{% else %}
+<p><em>Noch keine Wörter — `uv run ingest` ausführen, um den Korpus zu laden.</em></p>
+{% endif %}
+{% endblock %}
