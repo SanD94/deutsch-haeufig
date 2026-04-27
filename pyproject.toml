@@ -17,6 +17,7 @@ dependencies = [
     "selectolax>=0.3.27",
     "fsrs>=4.0",
     "python-multipart>=0.0.20",
+    "playwright>=1.48",
 ]
 
 [project.optional-dependencies]
