@@ -29,16 +29,6 @@
     </label>
 
     <label>
-        Kategorie
-        <select name="category">
-            <option value="">Alle</option>
-            {% for cat in known_categories %}
-            <option value="{{ cat }}" {% if filters.category == cat %}selected{% endif %}>{{ cat }}</option>
-            {% endfor %}
-        </select>
-    </label>
-
-    <label>
         Häufigkeit
         <select name="frequency">
             <option value="">Alle</option>

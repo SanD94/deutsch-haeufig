@@ -21,13 +21,15 @@ Legend: 🟢 must-have · 🟡 should-have · 🔵 nice-to-have
 ## M1 — Seed ingest from vocabeo 
 
 🟢 `ingest/vocabeo.py` scrapes the browse list into `data/vocabeo_seed.jsonl`:
-   `{lemma, article, pos, level, frequency, category, en_gloss}`.
-🟢 Respect rate limit (≥1 s between requests), cache raw HTML on disk.
+   `{lemma, article, pos, level, frequency, en_gloss}`.
+   - List view yields `lemma`, `article`, `level`, `frequency`, `en_gloss`.
+   - `pos` is fetched per word by opening the word's detail view (click-through),
+     since it isn't exposed in the list rows.
 🟢 `ingest/pipeline.py seed` populates `Word` rows (no senses yet).
-🟢 Browse route lists words with filters: level, category, pos, frequency, full-text on lemma.
+🟢 Browse route lists words with filters: level, pos, frequency, full-text on lemma.
 🟢 Tests: parser fixtures for 5 sample pages.
 
-**Demo:** browse 6k words with the same filters as vocabeo.
+**Demo:** browse 6k words with level / pos / frequency / lemma filters.
 
 ---
 

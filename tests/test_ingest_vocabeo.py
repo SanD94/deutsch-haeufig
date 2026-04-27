@@ -1,26 +1,31 @@
-"""Parser fixtures for M1 — vocabeo seed scraper.
+"""M1 — vocabeo seed scraper parser tests.
 
-Five hand-picked fixtures cover the structural variants we found on
-vocabeo.com/german-vocabulary/* in April 2026:
+Five fixture rows cover the structural variants we found on
+vocabeo.com/browse in April 2026:
 
-  - verbs.html       reflexive forms, ``(sich) X`` form, mixed in CTA dividers
-  - nouns.html       ``"Lemma, der/die/das"`` article suffix
-  - adjectives.html  bare adjective lemmas
-  - colors.html      lemmas decorated with trailing emoji
-  - numbers.html     ``"<digit> - <word>"`` format
+  - adj_a1.html         bare adjective lemma
+  - noun_der.html       ``"<Lemma>, der"`` article suffix
+  - noun_die.html       ``"<Lemma>, die"`` article suffix
+  - verb_sein.html      ``sein`` (verb) — homograph
+  - pron_no_level.html  ``sein`` (pronoun) — homograph + missing CEFR level
+
+The parser is exercised through :func:`parse_row_html`, the same pure
+function the live Playwright scraper drives over each captured row.
 """
 
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
 
 from deutsch_haufig.ingest.vocabeo import (
     VocabeoEntry,
-    parse_browse_page,
+    parse_row_html,
     read_jsonl,
+    split_article,
     write_jsonl,
 )
 
@@ -34,82 +39,86 @@ def _read(name: str) -> str:
 # --- per-fixture parser tests ---------------------------------------------
 
 
-def test_parse_verbs_extracts_lemmas_and_examples() -> None:
-    entries = parse_browse_page(_read("verbs.html"), pos="verb", category="Common verbs")
-    lemmas = [e.lemma for e in entries]
-    assert lemmas == ["stellen", "nehmen", "sich erinnern", "(sich) vorstellen"]
-    assert all(e.pos == "verb" for e in entries)
-    assert all(e.article is None for e in entries)
-    # First entry carries gloss + example pair.
-    first = entries[0]
-    assert "to put" in first.en_gloss
-    assert first.example_de == "Ich stelle die Bücher ins Regal."
-    assert first.example_en == "I put the books on the shelf."
-    assert first.source_ref.endswith("#1")
+def test_parse_adjective_keeps_bare_lemma() -> None:
+    e = parse_row_html(_read("adj_a1.html"), pos="adj")
+    assert e.lemma == "gut"
+    assert e.article is None
+    assert e.pos == "adj"
+    assert e.level == "A1"
+    assert e.frequency == 5
+    assert e.en_gloss == "good, fine"
 
 
-def test_parse_verbs_skips_cta_divider() -> None:
-    entries = parse_browse_page(_read("verbs.html"), pos="verb", category="Common verbs")
-    # 4 word rows in the fixture; 1 CTA divider must be ignored.
-    assert len(entries) == 4
-    for e in entries:
-        assert "Struggling" not in e.en_gloss
-        assert "Struggling" not in (e.example_de or "")
+def test_parse_noun_der_strips_article_suffix() -> None:
+    e = parse_row_html(_read("noun_der.html"), pos="noun")
+    assert e.lemma == "Mensch"
+    assert e.article == "der"
+    assert e.pos == "noun"
+    assert "human" in e.en_gloss
 
 
-def test_parse_nouns_strips_article_suffix() -> None:
-    entries = parse_browse_page(_read("nouns.html"), pos="noun", category="Common nouns")
-    by_lemma = {e.lemma: e for e in entries}
-    assert by_lemma["Uhr"].article == "die"
-    assert by_lemma["Jahr"].article == "das"
-    assert by_lemma["Mensch"].article == "der"
-    assert all(e.pos == "noun" for e in entries)
+def test_parse_noun_die_strips_article_suffix() -> None:
+    e = parse_row_html(_read("noun_die.html"), pos="noun")
+    assert e.lemma == "Uhr"
+    assert e.article == "die"
+    assert e.pos == "noun"
 
 
-def test_parse_adjectives_keeps_bare_lemma() -> None:
-    entries = parse_browse_page(_read("adjectives.html"), pos="adj", category="Common adjectives")
-    assert [e.lemma for e in entries] == ["groß", "klein"]
-    assert all(e.article is None for e in entries)
-    assert all(e.pos == "adj" for e in entries)
+def test_parse_verb_homograph_keeps_lemma() -> None:
+    e = parse_row_html(_read("verb_sein.html"), pos="verb")
+    assert e.lemma == "sein"
+    assert e.article is None  # articles are noun-only
+    assert e.pos == "verb"
+    assert e.en_gloss == "to be"
 
 
-def test_parse_colors_strips_trailing_emoji() -> None:
-    entries = parse_browse_page(_read("colors.html"), pos="adj", category="Colors")
-    assert [e.lemma for e in entries] == ["rot", "blau", "grün"]
-    assert all("🔴" not in e.lemma for e in entries)
+def test_parse_pronoun_handles_missing_level() -> None:
+    e = parse_row_html(_read("pron_no_level.html"), pos="pron")
+    assert e.lemma == "sein"
+    assert e.pos == "pron"
+    assert e.level is None  # empty level cell → None
+    assert e.frequency == 3
+    assert e.article is None
 
 
-def test_parse_numbers_drops_digit_prefix() -> None:
-    entries = parse_browse_page(_read("numbers.html"), pos="num", category="Numbers")
-    assert [e.lemma for e in entries] == ["null", "eins", "einundzwanzig"]
-    assert all(e.pos == "num" for e in entries)
+# --- helper unit tests ----------------------------------------------------
 
 
-# --- frequency bucketing --------------------------------------------------
-
-
-def test_frequency_buckets_decrease_with_rank() -> None:
-    """Top entries get higher buckets than lower entries on the same page."""
-    entries = parse_browse_page(_read("verbs.html"), pos="verb", category="Common verbs")
-    # 4 word entries → buckets are non-increasing as rank grows.
-    freqs = [e.frequency for e in entries]
-    assert freqs == sorted(freqs, reverse=True)
-    assert freqs[0] == 5
-    assert all(1 <= f <= 5 for f in freqs)
+@pytest.mark.parametrize(
+    "raw,expected_article,expected_lemma",
+    [
+        ("Uhr, die", "die", "Uhr"),
+        ("Mensch, der", "der", "Mensch"),
+        ("Jahr, das", "das", "Jahr"),
+        ("Erbe, der/die", "der/die", "Erbe"),  # multi-article variant
+        ("Buch , das", "das", "Buch"),  # tolerates extra whitespace
+        ("gut", None, "gut"),  # no article suffix
+        ("sein", None, "sein"),  # homograph: no comma
+    ],
+)
+def test_split_article(raw: str, expected_article: str | None, expected_lemma: str) -> None:
+    article, lemma = split_article(raw)
+    assert article == expected_article
+    assert lemma == expected_lemma
 
 
 # --- jsonl round-trip -----------------------------------------------------
 
 
 def test_write_and_read_jsonl_round_trip(tmp_path: Path) -> None:
-    entries = parse_browse_page(_read("nouns.html"), pos="noun", category="Common nouns")
+    entries = [
+        parse_row_html(_read("adj_a1.html"), pos="adj"),
+        parse_row_html(_read("noun_die.html"), pos="noun"),
+        parse_row_html(_read("verb_sein.html"), pos="verb"),
+    ]
     out = tmp_path / "seed.jsonl"
     n = write_jsonl(entries, out)
     assert n == len(entries)
-    # File is valid JSONL (one JSON object per line).
+    # File is valid JSONL (one JSON object per line) with the M1 schema.
+    expected_keys = {"lemma", "article", "pos", "level", "frequency", "en_gloss", "source_ref"}
     for line in out.read_text(encoding="utf-8").splitlines():
-        json.loads(line)
-    # And can be re-hydrated identically.
+        record = json.loads(line)
+        assert set(record) == expected_keys
     rehydrated = read_jsonl(out)
     assert rehydrated == entries
 
@@ -118,21 +127,29 @@ def test_write_and_read_jsonl_round_trip(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "name,pos,category",
+    "name,pos",
     [
-        ("verbs.html", "verb", "Common verbs"),
-        ("nouns.html", "noun", "Common nouns"),
-        ("adjectives.html", "adj", "Common adjectives"),
-        ("colors.html", "adj", "Colors"),
-        ("numbers.html", "num", "Numbers"),
+        ("adj_a1.html", "adj"),
+        ("noun_der.html", "noun"),
+        ("noun_die.html", "noun"),
+        ("verb_sein.html", "verb"),
+        ("pron_no_level.html", "pron"),
     ],
 )
-def test_every_fixture_yields_at_least_one_entry(name: str, pos: str, category: str) -> None:
-    entries = parse_browse_page(_read(name), pos=pos, category=category)
-    assert entries, f"{name} should parse at least one entry"
-    for e in entries:
-        assert isinstance(e, VocabeoEntry)
-        assert e.lemma
-        assert e.pos == pos
-        assert e.category == category
+def test_every_fixture_yields_a_valid_entry(name: str, pos: str) -> None:
+    e = parse_row_html(_read(name), pos=pos)
+    assert isinstance(e, VocabeoEntry)
+    assert e.lemma
+    assert e.pos == pos
+    if e.frequency is not None:
         assert 1 <= e.frequency <= 5
+    # Round-trip through JSON to ensure the dataclass is JSON-serialisable.
+    json.dumps(asdict(e), ensure_ascii=False)
+
+
+def test_parse_row_without_word_cell_raises() -> None:
+    with pytest.raises(ValueError):
+        parse_row_html(
+            '<div data-testid="virtual-list-row"></div>',
+            pos="adj",
+        )

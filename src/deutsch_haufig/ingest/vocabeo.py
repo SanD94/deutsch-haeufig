@@ -1,301 +1,154 @@
-"""Scrape vocabeo.com for a frequency-ranked German seed corpus.
+"""Scrape vocabeo.com/browse for the M1 frequency-ranked seed corpus.
 
-vocabeo.com/browse is rendered by a SvelteKit SPA, so the underlying word
-list is not in the static HTML.  The site, however, exposes server-rendered
-*"100 most common …"* pages under /german-vocabulary/, plus a couple of
-themed pages (colors, numbers).  Together those cover the top several
-hundred most-frequent A1 words — exactly the slice the PoC needs (PLAN §7
-asks for ~200 A1 words).
+The browse page is a SvelteKit SPA with a virtual list — only the rows
+near the viewport exist in the DOM at any time, and rows are absolutely
+positioned via ``style.top``. To get every row we apply each option of
+the page's *Part of Speech* filter in turn (so every harvested row is
+already tagged with its POS) and scroll the virtualised list to render
+each chunk, deduplicating by ``top`` offset.
 
-Each row on those pages looks like::
+Each row's outer HTML is captured and handed to :func:`parse_row_html`
+— a pure, fixture-testable function that returns a :class:`VocabeoEntry`
+matching the M1 JSONL schema:
 
-    <div class="row svelte-p4dir4">
-      <div>
-        <span class="german-verb …">LEMMA</span> -
-        <span class="english-verb …">EN_GLOSS</span>
-      </div>
-      <div>German example sentence …</div>
-      <div class="english-sentence …">English translation …</div>
-      <button class="dictionary-link …">…</button>
-    </div>
+    {lemma, article, pos, level, frequency, en_gloss, source_ref}
 
-For nouns the lemma carries the article suffix ("Uhr, die"); we strip it.
+``article`` (e.g. ``"die"``) is split off the lemma cell for nouns,
+which vocabeo renders as ``"<Lemma>, <article>"``.
 """
 
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
+import re
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import httpx
-from selectolax.parser import HTMLParser, Node
+from selectolax.parser import HTMLParser
+
+if TYPE_CHECKING:  # pragma: no cover - type-only import
+    from playwright.async_api import Page
 
 logger = logging.getLogger(__name__)
 
+URL = "https://vocabeo.com/browse"
+ROW_HEIGHT = 30.4  # px, fixed by the Svelte virtual list
+VIEWPORT = {"width": 1280, "height": 900}
+SCROLL_STEP = 600
+SETTLE_SECONDS = 0.10
+MAX_NO_GROWTH_ROUNDS = 30
 
-# --- source pages ----------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class SourcePage:
-    """One scrape target on vocabeo.com."""
-
-    url: str
-    pos: str
-    category: str
-    level: str | None = "A1"
-
-
-SOURCE_PAGES: tuple[SourcePage, ...] = (
-    SourcePage(
-        "https://vocabeo.com/german-vocabulary/100-most-common-german-verbs",
-        pos="verb",
-        category="Common verbs",
-    ),
-    SourcePage(
-        "https://vocabeo.com/german-vocabulary/100-most-common-german-nouns",
-        pos="noun",
-        category="Common nouns",
-    ),
-    SourcePage(
-        "https://vocabeo.com/german-vocabulary/100-most-common-german-adjectives",
-        pos="adj",
-        category="Common adjectives",
-    ),
-    SourcePage(
-        "https://vocabeo.com/german-vocabulary/colors-in-german",
-        pos="adj",
-        category="Colors",
-    ),
-    SourcePage(
-        "https://vocabeo.com/german-vocabulary/numbers-in-german",
-        pos="num",
-        category="Numbers",
-    ),
+# (filter label as shown on vocabeo, canonical short tag stored in JSONL)
+POS_OPTIONS: tuple[tuple[str, str], ...] = (
+    ("Adjective", "adj"),
+    ("Adverb", "adv"),
+    ("Conjunction", "conj"),
+    ("Interjection", "interj"),
+    ("Noun", "noun"),
+    ("Number", "num"),
+    ("Preposition", "prep"),
+    ("Pronoun", "pron"),
+    ("Verb", "verb"),
 )
 
+KNOWN_POS_TAGS: tuple[str, ...] = tuple(tag for _, tag in POS_OPTIONS)
 
-# --- entry shape -----------------------------------------------------------
+
+# --- entry shape ----------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class VocabeoEntry:
-    """Raw seed entry; mirrors the JSONL written to disk."""
+    """One row of the M1 seed JSONL."""
 
     lemma: str
     article: str | None
     pos: str
     level: str | None
-    frequency: int
-    category: str
+    frequency: int | None
     en_gloss: str
-    example_de: str | None
-    example_en: str | None
-    source_ref: str  # e.g. "vocabeo:100-most-common-german-verbs#7"
+    source_ref: str
 
 
-# --- parser ----------------------------------------------------------------
+# --- pure parser ----------------------------------------------------------
 
 
-_ARTICLES = {"der", "die", "das"}
+# Vocabeo renders nouns as "<Lemma>, <article>" — e.g. "Uhr, die".
+# A few entries carry multiple articles (e.g. "Erbe, der/die"); we accept
+# any combination of der/die/das separated by commas or slashes.
+ARTICLE_SUFFIX_RE = re.compile(
+    r"^(?P<lemma>.+?),\s*"
+    r"(?P<article>(?:der|die|das)(?:\s*[,/]\s*(?:der|die|das))*)$"
+)
 
 
-def _strip_decorations(text: str) -> str:
-    """Remove trailing emoji / symbol decorations (e.g. ``"rot 🔴"`` → ``"rot"``)."""
-    text = " ".join(text.split()).strip()
-    # Drop trailing non-letter tokens.  We keep tokens that contain at least
-    # one alphabetic character (covers German ä/ö/ü/ß and digits-with-text).
-    parts = text.split()
-    while parts and not any(ch.isalpha() for ch in parts[-1]):
-        parts.pop()
-    return " ".join(parts)
+def split_article(raw: str) -> tuple[str | None, str]:
+    """Return ``(article, bare_lemma)`` for a noun cell like ``"Uhr, die"``.
 
-
-def _split_lemma(raw: str, pos: str) -> tuple[str, str | None]:
-    """Split a vocabeo lemma cell into (lemma, article).
-
-    Conventions across vocabeo's SSR pages:
-
-    - Nouns: ``"Uhr, die"`` / ``"Computer, der"``  → strip the article.
-    - Numbers: ``"0 - null"`` / ``"21 - einundzwanzig"`` → keep the word.
-    - Colors: ``"rot 🔴"``                        → strip the emoji tail.
+    Non-noun cells (or nouns without a trailing article) return
+    ``(None, raw)`` unchanged.
     """
-    text = _strip_decorations(raw)
-    if pos == "num" and " - " in text:
-        # "0 - null" → "null"
-        _digits, _, word = text.partition(" - ")
-        text = _strip_decorations(word) or text
-        return text, None
-    if pos == "noun" and "," in text:
-        head, _, tail = text.rpartition(",")
-        tail = tail.strip()
-        head = head.strip()
-        if tail in _ARTICLES and head:
-            return head, tail
-    return text, None
+    m = ARTICLE_SUFFIX_RE.match(raw)
+    if not m:
+        return None, raw
+    return m.group("article").strip(), m.group("lemma").strip()
 
 
-def _bucket_frequency(rank: int, total: int) -> int:
-    """Map a 1-based rank within a page to a 1..5 frequency bucket.
-
-    Higher == more frequent.  Top fifth of the page → 5, bottom fifth → 1.
-    Matches vocabeo's own 5-level UI bucket.
-    """
-    if total <= 0 or rank < 1:
-        return 1
-    # Map ranks evenly into 5 buckets, with rank 1 → bucket 5.
-    fifth = max(1, (total + 4) // 5)
-    bucket = 5 - min(4, (rank - 1) // fifth)
-    return max(1, min(5, bucket))
+def _cell_text(tree: HTMLParser, css_class: str) -> str:
+    node = tree.css_first(f".cell.{css_class}")
+    if node is None:
+        return ""
+    return " ".join(node.text(separator=" ").split()).strip()
 
 
-def _row_text(div: Node) -> str:
-    return " ".join(div.text(separator=" ").split()).strip()
-
-
-def parse_browse_page(
+def parse_row_html(
     html: str,
     *,
     pos: str,
-    category: str,
-    level: str | None = "A1",
-    source_slug: str = "vocabeo",
-) -> list[VocabeoEntry]:
-    """Parse one server-rendered vocabeo vocabulary page into entries.
+    source_slug: str = "vocabeo:browse",
+) -> VocabeoEntry:
+    """Parse one virtual-list row's outer HTML into a :class:`VocabeoEntry`.
 
-    Pure function over a HTML string so it can be exercised by fixtures.
-    Skips CTA / divider rows that re-use the same outer ``row`` markup.
+    Pure function — no I/O, no playwright; safe to drive from tests.
+    Raises :class:`ValueError` if the row carries no lemma cell.
     """
     tree = HTMLParser(html)
-    entries: list[VocabeoEntry] = []
-    rows = tree.css("div.row")
-    # First pass: keep only word rows (one with a german-* span).
-    word_rows: list[Node] = []
-    for row in rows:
-        gerry = row.css_first("span[class^='german-']") or row.css_first("span[class*=' german-']")
-        if gerry is None:
-            continue
-        word_rows.append(row)
+    lemma_raw = _cell_text(tree, "word")
+    if not lemma_raw:
+        raise ValueError("row has no .cell.word text")
+    en_gloss = _cell_text(tree, "translation")
+    level = _cell_text(tree, "level") or None
+    freq_str = _cell_text(tree, "frequency")
+    frequency: int | None = int(freq_str) if freq_str.isdigit() else None
 
-    total = len(word_rows)
-    for rank, row in enumerate(word_rows, start=1):
-        gerry = row.css_first("span[class^='german-']") or row.css_first("span[class*=' german-']")
-        engy = row.css_first("span[class^='english-']") or row.css_first("span[class*=' english-']")
-        if gerry is None or engy is None:
-            continue
-        raw_lemma = gerry.text(strip=True)
-        en_gloss = " ".join(engy.text(separator=" ").split()).strip()
-        lemma, article = _split_lemma(raw_lemma, pos)
-        if not lemma:
-            continue
+    if pos == "noun":
+        article, lemma = split_article(lemma_raw)
+    else:
+        article, lemma = None, lemma_raw
 
-        # Example sentence + translation are sibling <div>s of the lemma row.
-        # The translation div has class="english-sentence …".
-        example_de: str | None = None
-        example_en: str | None = None
-        for child in row.css("div"):
-            classes = (child.attributes.get("class") or "").split()
-            if "english-sentence" in classes:
-                example_en = _row_text(child) or None
-                continue
-            # Skip the lemma+gloss container (it holds the german-* span).
-            if child.css_first("span[class^='german-']") is not None:
-                continue
-            if example_de is None:
-                txt = _row_text(child)
-                if txt:
-                    example_de = txt
-
-        entries.append(
-            VocabeoEntry(
-                lemma=lemma,
-                article=article,
-                pos=pos,
-                level=level,
-                frequency=_bucket_frequency(rank, total),
-                category=category,
-                en_gloss=en_gloss,
-                example_de=example_de,
-                example_en=example_en,
-                source_ref=f"{source_slug}#{rank}",
-            )
-        )
-    return entries
+    return VocabeoEntry(
+        lemma=lemma,
+        article=article,
+        pos=pos,
+        level=level,
+        frequency=frequency,
+        en_gloss=en_gloss,
+        source_ref=source_slug,
+    )
 
 
-# --- fetcher + cache -------------------------------------------------------
+# --- jsonl I/O ------------------------------------------------------------
 
 
-def _cache_path(cache_dir: Path, url: str) -> Path:
-    digest = hashlib.sha1(url.encode("utf-8")).hexdigest()[:16]
-    safe = url.rsplit("/", 1)[-1] or "index"
-    safe = "".join(c if c.isalnum() or c in "-_." else "_" for c in safe)
-    return cache_dir / f"{safe}-{digest}.html"
-
-
-async def fetch_html(
-    client: httpx.AsyncClient,
-    url: str,
-    cache_dir: Path,
-    *,
-    force: bool = False,
-) -> str:
-    """GET ``url`` with on-disk HTML cache.  Returns the response body."""
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    path = _cache_path(cache_dir, url)
-    if path.exists() and not force:
-        logger.debug("cache hit: %s", path.name)
-        return path.read_text(encoding="utf-8")
-    logger.info("fetching %s", url)
-    resp = await client.get(url, headers={"User-Agent": "deutsch-haufig/0.1 (+seed)"})
-    resp.raise_for_status()
-    body = resp.text
-    path.write_text(body, encoding="utf-8")
-    return body
-
-
-# --- pipeline glue ---------------------------------------------------------
-
-
-async def scrape_pages(
-    pages: Iterable[SourcePage],
-    cache_dir: Path,
-    *,
-    rate_limit_seconds: float = 1.0,
-    force: bool = False,
-) -> list[VocabeoEntry]:
-    """Fetch each source page (≥ ``rate_limit_seconds`` apart) and parse it."""
-    out: list[VocabeoEntry] = []
-    pages = list(pages)
-    timeout = httpx.Timeout(20.0, connect=10.0)
-    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-        for i, page in enumerate(pages):
-            if i > 0:
-                await asyncio.sleep(rate_limit_seconds)
-            html = await fetch_html(client, page.url, cache_dir, force=force)
-            slug = page.url.rsplit("/", 1)[-1]
-            entries = parse_browse_page(
-                html,
-                pos=page.pos,
-                category=page.category,
-                level=page.level,
-                source_slug=f"vocabeo:{slug}",
-            )
-            logger.info("parsed %d entries from %s", len(entries), slug)
-            out.extend(entries)
-    return out
-
-
-def write_jsonl(entries: Iterable[VocabeoEntry], out_path: Path) -> int:
-    """Write entries as one JSON object per line.  Returns the count."""
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+def write_jsonl(entries: Iterable[VocabeoEntry], path: Path) -> int:
+    """Write entries one-per-line as JSON. Returns the number of records."""
+    path.parent.mkdir(parents=True, exist_ok=True)
     n = 0
-    with out_path.open("w", encoding="utf-8") as fh:
+    with path.open("w", encoding="utf-8") as fh:
         for entry in entries:
             fh.write(json.dumps(asdict(entry), ensure_ascii=False))
             fh.write("\n")
@@ -313,4 +166,134 @@ def read_jsonl(path: Path) -> list[VocabeoEntry]:
                 continue
             data = json.loads(line)
             out.append(VocabeoEntry(**data))
+    return out
+
+
+# --- playwright scraper ---------------------------------------------------
+
+
+async def _reset_filters(page: Page) -> None:
+    try:
+        await page.get_by_text("Reset filters", exact=True).click(timeout=2000)
+        await asyncio.sleep(0.5)
+    except Exception:  # noqa: BLE001 — best-effort, the filter UI varies
+        logger.debug("reset-filters click failed (continuing)")
+
+
+async def _apply_pos_filter(page: Page, label: str) -> None:
+    """Select ``label`` in the *Part of Speech* filter, dropdown-or-inline."""
+    try:
+        await page.get_by_text("Part of Speech", exact=True).click(timeout=2000)
+        await asyncio.sleep(0.2)
+    except Exception:  # noqa: BLE001 — already inline, no dropdown to open
+        pass
+    await page.get_by_text(label, exact=True).first.click(timeout=5000)
+    await page.keyboard.press("Escape")
+    await asyncio.sleep(0.5)
+
+
+async def _collect_visible_rows(page: Page) -> list[tuple[str, str]]:
+    """Return ``[(top_px, outerHTML)]`` for currently rendered virtual rows."""
+    return await page.evaluate(
+        """() => {
+            const wrapper = document.querySelector('#virtual-list-wrapper');
+            if (!wrapper) return [];
+            const items = wrapper.querySelectorAll('div[slot="item"]');
+            const out = [];
+            for (const it of items) {
+                const top = it.style.top || '';
+                const row = it.querySelector('[data-testid="virtual-list-row"]');
+                if (!row) continue;
+                out.push([top, row.outerHTML]);
+            }
+            return out;
+        }"""
+    )
+
+
+async def _scrape_one_pos(page: Page, label: str, tag: str) -> list[VocabeoEntry]:
+    """Apply one POS filter and harvest every row in the resulting list."""
+    await _reset_filters(page)
+    await _apply_pos_filter(page, label)
+    await page.wait_for_selector("#virtual-list-wrapper", timeout=30000)
+    await asyncio.sleep(1.0)
+
+    scroll_height = await page.evaluate(
+        "document.querySelector('#virtual-list-wrapper').scrollHeight"
+    )
+    expected_rows = max(1, int(scroll_height / ROW_HEIGHT))
+    logger.info("[%s] scrollHeight=%dpx (~%d rows)", tag, scroll_height, expected_rows)
+
+    rows: dict[int, str] = {}
+    no_growth = 0
+    last_size = 0
+    scroll_top = 0
+    while True:
+        await page.evaluate(
+            f"document.querySelector('#virtual-list-wrapper').scrollTop = {scroll_top}"
+        )
+        await asyncio.sleep(SETTLE_SECONDS)
+        for top_str, outer_html in await _collect_visible_rows(page):
+            top_px = float((top_str or "0px").rstrip("px") or 0)
+            idx = round(top_px / ROW_HEIGHT)
+            rows.setdefault(idx, outer_html)
+        if len(rows) == last_size:
+            no_growth += 1
+        else:
+            no_growth = 0
+        last_size = len(rows)
+        if scroll_top >= scroll_height and no_growth >= MAX_NO_GROWTH_ROUNDS:
+            break
+        if len(rows) >= expected_rows and no_growth >= 5:
+            break
+        scroll_top += SCROLL_STEP
+        if scroll_top > scroll_height + SCROLL_STEP * 5:
+            scroll_top = 0  # wrap once to pick up tail rows
+    logger.info("[%s] collected %d rows", tag, len(rows))
+
+    entries: list[VocabeoEntry] = []
+    for idx in sorted(rows):
+        try:
+            entries.append(
+                parse_row_html(
+                    rows[idx],
+                    pos=tag,
+                    source_slug=f"vocabeo:browse#{tag}:{idx}",
+                )
+            )
+        except ValueError:
+            continue
+    return entries
+
+
+async def scrape_browse_list(
+    *,
+    headless: bool = True,
+    pos_options: tuple[tuple[str, str], ...] = POS_OPTIONS,
+) -> list[VocabeoEntry]:
+    """Scrape the entire vocabeo /browse list, tagged with POS via the filter UI.
+
+    Returns a deduplicated list keyed on ``(lemma, pos, en_gloss)`` so
+    homographs (e.g. ``sein/verb`` and ``sein/pron``) are both kept.
+    """
+    from playwright.async_api import async_playwright
+
+    seen: set[tuple[str, str, str]] = set()
+    out: list[VocabeoEntry] = []
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=headless)
+        page = await browser.new_page(viewport=VIEWPORT)
+        await page.goto(URL, timeout=60000, wait_until="domcontentloaded")
+        await page.wait_for_selector("#virtual-list-wrapper", timeout=30000)
+        await asyncio.sleep(2.0)
+
+        for label, tag in pos_options:
+            for entry in await _scrape_one_pos(page, label, tag):
+                key = (entry.lemma, entry.pos, entry.en_gloss)
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append(entry)
+
+        await browser.close()
     return out
