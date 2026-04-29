@@ -4,16 +4,25 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ title }} — deutsch-haufig</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
 </head>
-<body>
-    <header>
-        <nav>
-            <a href="/">Start</a> ·
-            <a href="/browse">Browse</a>
+<body class="bg-gray-50 text-gray-900">
+    <header class="bg-white border-b border-gray-200">
+        <nav class="max-w-4xl mx-auto px-4 py-3 flex gap-3 text-sm">
+            <a href="/" class="text-gray-700 hover:text-blue-600 font-medium">Start</a>
+            <span class="text-gray-300">·</span>
+            <a href="/browse" class="text-gray-700 hover:text-blue-600 font-medium">Browse</a>
+            <span class="text-gray-300">·</span>
+            <a href="/learn" class="text-gray-700 hover:text-blue-600 font-medium">Learn</a>
         </nav>
     </header>
     <main>
         {% block content %}{% endblock %}
     </main>
+    {% block scripts %}{% endblock %}
 </body>
 </html>
