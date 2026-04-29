@@ -56,8 +56,10 @@
         {% for word in words %}
         <tr>
             <td>
+                <a href="/word/{{ word.id }}">
                 {% if word.article %}<em>{{ word.article }}</em> {% endif %}
                 <strong>{{ word.lemma }}</strong>
+                </a>
             </td>
             <td>{{ word.pos }}</td>
             <td>{{ word.level or '—' }}</td>

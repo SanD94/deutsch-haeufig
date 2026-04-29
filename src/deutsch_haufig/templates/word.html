@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>
+    {% if word.article %}<em>{{ word.article }}</em> {% endif %}
+    {{ word.lemma }}
+    <small>{{ word.pos }}</small>
+</h1>
+
+<p class="meta">
+    {% if word.level %}
+    <span class="level">Niveau {{ word.level }}</span>
+    {% endif %}
+    <span class="frequency">Häufigkeit {{ word.frequency }}</span>
+</p>
+
+{% if not has_any_definition %}
+<div class="warning">
+    <span class="badge">Definition fehlt</span>
+    <p>Für dieses Wort liegt noch keine deutsche Definition vor.</p>
+</div>
+{% endif %}
+
+{% for sense in senses %}
+<div class="sense">
+    {% if sense.register or sense.domain %}
+    <p class="sense-meta">
+        {% if sense.register %}<span class="register">{{ sense.register }}</span>{% endif %}
+        {% if sense.domain %}<span class="domain">{{ sense.domain }}</span>{% endif %}
+    </p>
+    {% endif %}
+
+    <p class="definition">
+        {% if sense.has_definition %}
+        {{ sense.definition_de }}
+        {% else %}
+        <em>Definition fehlt</em>
+        {% endif %}
+    </p>
+
+    {% if sense.examples %}
+    <h3>Beispiele</h3>
+    <ul class="examples">
+        {% for ex in sense.examples %}
+        <li>{{ ex.text_de }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</div>
+{% endfor %}
+
+<p class="attribution">
+    Quelle: {{ dwds_attribution }}
+</p>
+
+<p class="nav">
+    <a href="/browse">← Zurück zur Liste</a>
+</p>
+{% endblock %}

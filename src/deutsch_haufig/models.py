@@ -38,6 +38,7 @@ class Sense(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     word_id: Mapped[int] = mapped_column(ForeignKey("words.id", ondelete="CASCADE"), index=True)
+    order: Mapped[int] = mapped_column(Integer, default=1)
     definition_de: Mapped[str | None] = mapped_column(Text, nullable=True)
     register: Mapped[str | None] = mapped_column(String(32), nullable=True)
     domain: Mapped[str | None] = mapped_column(String(64), nullable=True)
