@@ -46,6 +46,16 @@ Legend: 🟢 must-have · 🟡 should-have · 🔵 nice-to-have
 
 **Demo:** click any A1 word → German definition + 3 real corpus examples render.
 
+### Diagnosed Issues (Todo)
+- [ ] Missing templates: No `templates/` directory; `word.html`, `index.html`, `browse.html` absent, causing 500 errors on all page renders.
+- [ ] Broken enrich pipeline: `pipeline.py:enrich_words()` uses closed DB session in `word_iter()`, crashes on `uv run ingest enrich`.
+- [ ] DWDS parser example bug: All corpus examples mapped to sense 1 only (dwds.py lines 200-208 ignore per-sense grouping).
+- [ ] Missing test fixtures: 10 DWDS HTML fixtures required by ROADMAP; only 3 referenced, none exist in `tests/fixtures/dwds/`.
+- [ ] Word API response bug: `word.py:word_api()` line 147 sets `order` to `s.definition_de` instead of `s.order`.
+- [ ] Unimplemented fallback: "Definition fehlt" badge for failed DWDS lookups (M2 🟡 item) missing.
+- [ ] Dead code: `word.py:_serialize_word()` defined but never called.
+- [ ] Incomplete test coverage: Only 3 DWDS parser tests, short of 10 required by ROADMAP.
+
 ---
 
 ## M3 — Spaced repetition core 

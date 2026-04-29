@@ -1,6 +1,6 @@
 # AGENTS.md — deutsch-haufig
 
-Web app to learn most-frequent German words with German-only definitions (dwds.de), rich examples, and FSRS spaced repetition. See [PLAN.md](./PLAN.md) and [ROADMAP.md](./ROADMAP.md) for full context. **Status: pre-code; only PLAN/ROADMAP exist.** Honor the planned layout and stack below when adding code.
+Web app to learn most-frequent German words with German-only definitions (dwds.de), rich examples, and FSRS spaced repetition. See [PLAN.md](./PLAN.md) and [ROADMAP.md](./ROADMAP.md) for full context. Honor the planned layout and stack below when adding code.
 
 ## Stack
 Python 3.13 · FastAPI · SQLAlchemy 2.x + SQLite (`app.db`) · Pydantic · Jinja2 + HTMX + Alpine.js + Tailwind · httpx + selectolax (scraping) · `fsrs` PyPI pkg · pytest · uv + `pyproject.toml`.
