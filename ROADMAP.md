@@ -48,6 +48,10 @@ Legend: 🟢 must-have · 🟡 should-have · 🔵 nice-to-have
 
 ### Diagnosed Issues (Todo)
 - [x] Missing test fixtures: 10 DWDS HTML fixtures required by ROADMAP; only 3 referenced, none exist in `tests/fixtures/dwds/`.
+- [x] Enrich pipeline never worked — two bugs blocked all DWDS ingestion:
+  - `dwds.py:238` `fetch_words()` iterated async generator with `for` instead of `async for` → `TypeError: 'async_generator' object is not iterable`.
+  - `pipeline.py:131` new senses lacked `session.flush()` before accessing `sense.id` → `IntegrityError: NOT NULL constraint failed: examples.sense_id`.
+  - Both fixed; enrich now successfully populates senses + examples.
 - [ ] Word API response bug: `word.py:word_api()` line 147 sets `order` to `s.definition_de` instead of `s.order`.
 - [ ] Unimplemented fallback: "Definition fehlt" badge for failed DWDS lookups (M2 🟡 item) missing.
 - [ ] Dead code: `word.py:_serialize_word()` defined but never called.

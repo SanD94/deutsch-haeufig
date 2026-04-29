@@ -128,6 +128,7 @@ def upsert_sense_and_examples(
                 domain=sense_data.domain,
             )
             session.add(sense)
+            session.flush()
             existing_senses[sense_data.order] = sense
         count += 1
 

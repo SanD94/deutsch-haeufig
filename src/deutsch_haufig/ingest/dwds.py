@@ -235,7 +235,7 @@ async def fetch_words(
         timeout=httpx.Timeout(30.0, connect=10.0),
         follow_redirects=True,
     ) as client:
-        for word_id, lemma, pos in words:
+        async for word_id, lemma, pos in words:
             if limit is not None and count >= limit:
                 break
 
