@@ -154,6 +154,7 @@ def parse_entry(lemma: str, pos: str, html: str) -> DWDSEntry:
     tree = HTMLParser(html)
 
     senses: list[DWDSSense] = []
+    examples_by_sense: dict[int, list[DWDSExample]] = {}
     sense_idx = 1
 
     for lesart in _css_all(tree, "div.dwdswb-lesart"):
@@ -185,6 +186,15 @@ def parse_entry(lemma: str, pos: str, html: str) -> DWDSEntry:
         if dom_node:
             domain = dom_node.text().strip()
 
+        # Extract examples for this sense from the current lesart
+        belege = _css_all(lesart, "span.dwdswb-belegtext")
+        sense_examples = []
+        for beleg in belege:
+            text = " ".join(beleg.text(separator=" ").split()).strip()
+            if text and len(text) > 15:
+                sense_examples.append(DWDSExample(text_de=text, source="dwds-korpus"))
+        sense_examples = sense_examples[:3]
+
         senses.append(
             DWDSSense(
                 order=sense_idx,
@@ -193,22 +203,8 @@ def parse_entry(lemma: str, pos: str, html: str) -> DWDSEntry:
                 domain=domain,
             )
         )
-        sense_idx += 1
-
-    examples_by_sense: dict[int, list[DWDSExample]] = {i + 1: [] for i in range(len(senses) or 1)}
-
-    for beleg in _css_all(tree, "span.dwdswb-belegtext"):
-        text = " ".join(beleg.text(separator=" ").split()).strip()
-        if text and len(text) > 15:
-            examples_by_sense[1].append(
-                DWDSExample(
-                    text_de=text,
-                    source="dwds-korpus",
-                )
-            )
-
-    for idx in examples_by_sense:
-        examples_by_sense[idx] = examples_by_sense[idx][:3]
+        examples_by_sense[sense_idx] = sense_examples
+        sense_idx +=1
 
     return DWDSEntry(
         lemma=lemma,

@@ -157,7 +157,8 @@ async def enrich_words(limit: int | None = None) -> tuple[int, int]:
 
     async def word_iter():
         for w in words:
-            senses = session.execute(select(Sense).where(Sense.word_id == w.id)).scalars().all()
+            with SessionLocal() as sess:
+                senses = sess.execute(select(Sense).where(Sense.word_id == w.id)).scalars().all()
             has_def = any(s.definition_de for s in senses)
             if not has_def:
                 yield w.id, w.lemma, w.pos
