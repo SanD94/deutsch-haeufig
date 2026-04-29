@@ -22,33 +22,6 @@ router = APIRouter()
 SessionDep = Annotated[Session, Depends(get_session)]
 
 
-def _serialize_word(word: Word) -> dict:
-    """Serialize a word with its senses and examples for the template."""
-    return {
-        "id": word.id,
-        "lemma": word.lemma,
-        "article": word.article,
-        "pos": word.pos,
-        "level": word.level,
-        "frequency": word.frequency,
-        "senses": [
-            {
-                "id": s.id,
-                "order": s.order,
-                "definition_de": s.definition_de,
-                "register": s.register,
-                "domain": s.domain,
-                "has_definition": bool(s.definition_de),
-                "examples": [
-                    {"id": e.id, "text_de": e.text_de, "source": e.source}
-                    for e in word.senses[idx].examples
-                ],
-            }
-            for idx, s in enumerate(word.senses)
-        ],
-    }
-
-
 @router.get("/word/{word_id}", response_class=HTMLResponse)
 def word_detail(
     request: Request,
