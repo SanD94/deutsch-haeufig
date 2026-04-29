@@ -144,7 +144,7 @@ def word_api(
         senses=[
             {
                 "id": s.id,
-                "order": s.definition_de or "",
+                "order": s.order,
                 "definition_de": s.definition_de or "",
                 "register": s.register,
                 "domain": s.domain,
