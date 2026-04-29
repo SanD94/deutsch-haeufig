@@ -14,4 +14,3 @@ uv run web        # http://localhost:8000
 uv run pytest
 ```
 
-Status: **M0 — project skeleton.**

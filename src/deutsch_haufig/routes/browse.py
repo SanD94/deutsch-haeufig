@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -34,17 +34,26 @@ KNOWN_FREQUENCIES = (5, 4, 3, 2, 1)
 SessionDep = Annotated[Session, Depends(get_session)]
 
 
+def _parse_frequency(value: str | None) -> int | None:
+    if value is None or value == "":
+        return None
+    return int(value)
+
+
 @router.get("/browse", response_class=HTMLResponse)
 def browse(
     request: Request,
     session: SessionDep,
     level: Annotated[str | None, Query()] = None,
     pos: Annotated[str | None, Query()] = None,
-    frequency: Annotated[int | None, Query(ge=1, le=5)] = None,
+    frequency: Annotated[str | None, Query()] = None,
     q: Annotated[str | None, Query(max_length=64)] = None,
     limit: Annotated[int, Query(ge=1, le=1000)] = 200,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> HTMLResponse:
+    freq = _parse_frequency(frequency)
+    if freq is not None and not (1 <= freq <= 5):
+        raise HTTPException(422, "frequency must be 1-5")
     stmt = select(Word)
     count_stmt = select(func.count(Word.id))
     if level:
@@ -53,9 +62,11 @@ def browse(
     if pos:
         stmt = stmt.where(Word.pos == pos)
         count_stmt = count_stmt.where(Word.pos == pos)
-    if frequency is not None:
-        stmt = stmt.where(Word.frequency == frequency)
-        count_stmt = count_stmt.where(Word.frequency == frequency)
+    if freq is not None and not (1 <= freq <= 5):
+        raise HTTPException(422, "frequency must be 1-5")
+    if freq is not None:
+        stmt = stmt.where(Word.frequency == freq)
+        count_stmt = count_stmt.where(Word.frequency == freq)
     if q:
         like = f"%{q.lower()}%"
         stmt = stmt.where(func.lower(Word.lemma).like(like))
@@ -82,7 +93,7 @@ def browse(
             "filters": {
                 "level": level,
                 "pos": pos,
-                "frequency": frequency,
+                "frequency": freq,
                 "q": q,
             },
             "limit": limit,

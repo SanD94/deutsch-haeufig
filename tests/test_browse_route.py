@@ -127,6 +127,12 @@ def test_browse_invalid_frequency_returns_422(seeded_client: TestClient) -> None
     assert resp.status_code == 422
 
 
+def test_browse_empty_frequency_is_optional(seeded_client: TestClient) -> None:
+    resp = seeded_client.get("/browse?frequency=")
+    assert resp.status_code == 200
+    assert "5 Wörter" in resp.text
+
+
 def test_browse_no_category_filter_anymore(seeded_client: TestClient) -> None:
     """M1 dropped the category filter; the form must not advertise it."""
     resp = seeded_client.get("/browse")
