@@ -6,32 +6,9 @@ Legend: 🟢 must-have · 🟡 should-have · 🔵 nice-to-have
 
 ---
 
-## M0 — Project skeleton 
+## M0 — Project skeleton - Completed
 
-🟢 Repo bootstrap with `uv` + `pyproject.toml` (FastAPI, SQLAlchemy, Jinja2, httpx, selectolax, fsrs, pytest).
-🟢 `src/deutsch_haufig/` package layout from PLAN §8.
-🟢 `make dev` / `uv run web` starts an empty FastAPI app with a "Hello, Deutschland" page.
-🟢 SQLite + Alembic (or `Base.metadata.create_all`) creates empty schema.
-🟢 GitHub Actions: lint (ruff) + tests (pytest).
-
-**Demo:** open `localhost:8000` → empty browse page renders.
-
----
-
-## M1 — Seed ingest from vocabeo 
-
-🟢 `ingest/vocabeo.py` scrapes the browse list into `data/vocabeo_seed.jsonl`:
-   `{lemma, article, pos, level, frequency, en_gloss}`.
-   - List view yields `lemma`, `article`, `level`, `frequency`, `en_gloss`.
-   - `pos` is fetched per word by opening the word's detail view (click-through),
-     since it isn't exposed in the list rows.
-🟢 `ingest/pipeline.py seed` populates `Word` rows (no senses yet).
-🟢 Browse route lists words with filters: level, pos, frequency, full-text on lemma.
-🟢 Tests: parser fixtures for 5 sample pages.
-
-**Demo:** browse 6k words with level / pos / frequency / lemma filters.
-
----
+## M1 — Seed ingest from vocabeo - Completed
 
 ## M2 — German definitions & examples from dwds 
 
@@ -47,11 +24,6 @@ Legend: 🟢 must-have · 🟡 should-have · 🔵 nice-to-have
 **Demo:** click any A1 word → German definition + 3 real corpus examples render.
 
 ### Diagnosed Issues (Todo)
-- [x] Missing test fixtures: 10 DWDS HTML fixtures required by ROADMAP; only 3 referenced, none exist in `tests/fixtures/dwds/`.
-- [x] Enrich pipeline never worked — two bugs blocked all DWDS ingestion:
-  - `dwds.py:238` `fetch_words()` iterated async generator with `for` instead of `async for` → `TypeError: 'async_generator' object is not iterable`.
-  - `pipeline.py:131` new senses lacked `session.flush()` before accessing `sense.id` → `IntegrityError: NOT NULL constraint failed: examples.sense_id`.
-  - Both fixed; enrich now successfully populates senses + examples.
 - [ ] Word API response bug: `word.py:word_api()` line 147 sets `order` to `s.definition_de` instead of `s.order`.
 - [ ] Unimplemented fallback: "Definition fehlt" badge for failed DWDS lookups (M2 🟡 item) missing.
 - [ ] Dead code: `word.py:_serialize_word()` defined but never called.
