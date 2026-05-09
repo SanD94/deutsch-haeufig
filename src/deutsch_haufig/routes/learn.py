@@ -161,13 +161,15 @@ def _get_due_cards(
     now: datetime,
     limit: int,
 ) -> list[ReviewCard]:
-    """Return review cards that are due (due <= now), ordered by due date."""
+    """Return review cards that are due (due <= now) or new (never reviewed), ordered by due date."""
     stmt = (
         select(ReviewCard)
         .where(ReviewCard.user_id == user_id)
-        .where(ReviewCard.state != "new")
         .where(ReviewCard.due <= now)
-        .order_by(ReviewCard.due.asc())
+        .order_by(
+            ReviewCard.reps.asc(),  # unreviewed (reps=0) first
+            ReviewCard.due.asc(),
+        )
         .limit(limit)
     )
     return list(session.execute(stmt).scalars().all())
@@ -231,7 +233,7 @@ def learn(
     session: SessionDep,
 ):
     """Main learn page — shows the next card to review."""
-    user, _ = _ensure_user(session)
+    user, is_new = _ensure_user(session)
     settings = _get_user_settings(user)
     now = datetime.now(UTC)
 
@@ -251,7 +253,7 @@ def learn(
     if not due_cards and not new_senses:
         total_words = session.execute(select(func.count(Word.id))).scalar_one()
         if total_words == 0:
-            return templates.TemplateResponse(
+            resp = templates.TemplateResponse(
                 request,
                 "learn.html",
                 {
@@ -263,6 +265,9 @@ def learn(
                     "empty_corpus": True,
                 },
             )
+            if is_new:
+                _user_response(resp, user.id)
+            return resp
 
     # If we have new senses, create cards and pick the first one
     current_sense = None
@@ -332,7 +337,7 @@ def learn(
     remaining_new_q = max(0, len(new_senses) - 1) if new_senses else 0
     total_remaining = remaining_due + remaining_new_q
 
-    return templates.TemplateResponse(
+    resp = templates.TemplateResponse(
         request,
         "learn.html",
         {
@@ -348,6 +353,9 @@ def learn(
             "empty_corpus": False,
         },
     )
+    if is_new:
+        _user_response(resp, user.id)
+    return resp
 
 
 @router.post("/learn/rate")
@@ -359,7 +367,7 @@ def learn_rate(
     rating: Annotated[int, Query()],
 ):
     """Process a rating for the current card and redirect to next card."""
-    user, _ = _ensure_user(session)
+    user, is_new = _ensure_user(session)
     now = datetime.now(UTC)
     scheduler = _build_scheduler(user)
 
@@ -413,7 +421,10 @@ def learn_rate(
     session.add(log)
     session.commit()
 
-    return RedirectResponse(url="/learn", status_code=303)
+    resp = RedirectResponse(url="/learn", status_code=303)
+    if is_new:
+        _user_response(resp, user.id)
+    return resp
 
 
 @router.post("/learn/finish")

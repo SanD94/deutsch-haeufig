@@ -18,3 +18,7 @@ data/
 .DS_Store
 .idea/
 .vscode/
+
+# ignore
+mise.toml
+opencode.json
