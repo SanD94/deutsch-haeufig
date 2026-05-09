@@ -143,3 +143,28 @@ def test_browse_no_category_filter_anymore(seeded_client: TestClient) -> None:
     assert resp.status_code == 200
     assert "Kategorie" not in resp.text
     assert 'name="category"' not in resp.text
+
+
+def test_browse_returns_all_words_when_no_limit(seeded_client: TestClient) -> None:
+    """Without ?limit=, /browse returns every seeded word (no default cap)."""
+    resp = seeded_client.get("/browse")
+    assert resp.status_code == 200
+    assert "gut" in resp.text
+    assert "Mensch" in resp.text
+    assert "Uhr" in resp.text
+    assert "sein" in resp.text
+    # Verify the total count rendering — 5 distinct rows
+    assert "5 Wörter" in resp.text
+    # Pagination widget must be absent when all words fit on one page
+    assert "Nächste" not in resp.text
+
+
+def test_browse_pagination_shows_when_limit_exceeds_total(
+    seeded_client: TestClient,
+) -> None:
+    """With ?limit=2, /browse paginates and shows first 2 words."""
+    resp = seeded_client.get("/browse?limit=2")
+    assert resp.status_code == 200
+    # Pagination link appears
+    assert "Nächste" in resp.text
+    assert "1–2 von 5" in resp.text

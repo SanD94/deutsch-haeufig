@@ -83,10 +83,10 @@
     </div>
 
     <!-- Pagination -->
-    {% if total > limit %}
+    {% if limit and total > limit %}
     <div class="flex items-center justify-between mt-6 text-sm">
         <span class="text-stone-400">
-            {{ offset + 1 }}–{{ [offset + limit, total] | min }} von {{ total }}
+            {% if limit %}{{ offset + 1 }}–{{ [offset + limit, total] | min }} von {% endif %}{{ total }}
         </span>
         <div class="flex gap-2">
             {% if offset > 0 %}

@@ -6,8 +6,8 @@ Filters (all optional, all combined with AND):
   ?pos=verb       part of speech (noun, verb, adj, adv, prep, conj, pron, interj, num)
   ?frequency=5    frequency bucket 1..5 (5 = most frequent)
   ?q=geb          case-insensitive substring on lemma
-  ?limit=200      page size (default 200, max 1000)
-  ?offset=0       offset for pagination
+  ?limit=200      page size (default: no limit — shows all; max 10000)
+  ?offset=0       offset for pagination (requires limit)
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ def browse(
     pos: Annotated[str | None, Query()] = None,
     frequency: Annotated[str | None, Query()] = None,
     q: Annotated[str | None, Query(max_length=64)] = None,
-    limit: Annotated[int, Query(ge=1, le=1000)] = 200,
+    limit: Annotated[int | None, Query(ge=1, le=10000)] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> HTMLResponse:
     freq = _parse_frequency(frequency)
@@ -73,14 +73,12 @@ def browse(
         count_stmt = count_stmt.where(func.lower(Word.lemma).like(like))
 
     total = session.execute(count_stmt).scalar_one()
-    stmt = (
-        stmt.order_by(
-            Word.frequency.desc().nullslast(),
-            Word.lemma.asc(),
-        )
-        .offset(offset)
-        .limit(limit)
+    stmt = stmt.order_by(
+        Word.frequency.desc().nullslast(),
+        Word.lemma.asc(),
     )
+    if limit is not None:
+        stmt = stmt.offset(offset).limit(limit)
     words = session.execute(stmt).scalars().all()
 
     return templates.TemplateResponse(
