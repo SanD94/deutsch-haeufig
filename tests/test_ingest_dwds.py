@@ -54,7 +54,10 @@ def test_parse_noun_auto() -> None:
     assert e.lemma == "Auto"
     assert len(e.senses) >= 1
     assert e.senses[0].definition_de
-    assert "Kraftfahrzeug" in e.senses[0].definition_de or "Personenkraftwagen" in e.senses[0].definition_de
+    assert (
+        "Kraftfahrzeug" in e.senses[0].definition_de
+        or "Personenkraftwagen" in e.senses[0].definition_de
+    )
 
 
 def test_parse_noun_auto_examples() -> None:
