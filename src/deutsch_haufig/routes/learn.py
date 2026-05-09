@@ -29,7 +29,7 @@ COOKIE_MAX_AGE = 365 * 24 * 3600  # 1 year
 
 
 # ---------------------------------------------------------------------------
-# User management (simple cookie-based, no auth for M3)
+# User management — cookie-based, with email auth support (M6)
 # ---------------------------------------------------------------------------
 
 
@@ -43,11 +43,23 @@ def _get_user_id(request: Request) -> int | None:
     return None
 
 
-def _ensure_user(session: Session) -> tuple[User, bool]:
+def _ensure_user(session: Session, request: Request | None = None) -> tuple[User, bool]:
     """Return the current user, creating a default one if needed.
+
+    First tries the cookie user ID, then falls back to the first user
+    (legacy single-user mode), then creates a new anonymous user.
 
     Returns ``(user, is_new)``.
     """
+    # Try cookie
+    if request is not None:
+        uid = _get_user_id(request)
+        if uid is not None:
+            user = session.get(User, uid)
+            if user is not None:
+                return user, False
+
+    # Legacy: first user in DB
     user = session.execute(select(User).order_by(User.id).limit(1)).scalar_one_or_none()
     if user is None:
         user = User(settings_json=json.dumps({
@@ -233,7 +245,7 @@ def learn(
     session: SessionDep,
 ):
     """Main learn page — shows the next card to review."""
-    user, is_new = _ensure_user(session)
+    user, is_new = _ensure_user(session, request)
     settings = _get_user_settings(user)
     now = datetime.now(UTC)
 
@@ -367,11 +379,9 @@ def learn_rate(
     rating: Annotated[int, Query()],
 ):
     """Process a rating for the current card and redirect to next card."""
-    user, is_new = _ensure_user(session)
+    user, is_new = _ensure_user(session, request)
     now = datetime.now(UTC)
     scheduler = _build_scheduler(user)
-
-    # Load the review card
     card = session.execute(
         select(ReviewCard).where(ReviewCard.id == card_id)
     ).scalar_one_or_none()
@@ -440,7 +450,7 @@ def learn_bury(
     card_id: int,
 ):
     """Bury a card until tomorrow."""
-    user, _ = _ensure_user(session)
+    user, _ = _ensure_user(session, request)
     card = session.execute(
         select(ReviewCard).where(ReviewCard.id == card_id, ReviewCard.user_id == user.id)
     ).scalar_one_or_none()
@@ -460,7 +470,7 @@ def learn_suspend(
     card_id: int,
 ):
     """Suspend a card indefinitely (sets due far in the future)."""
-    user, _ = _ensure_user(session)
+    user, _ = _ensure_user(session, request)
     card = session.execute(
         select(ReviewCard).where(ReviewCard.id == card_id, ReviewCard.user_id == user.id)
     ).scalar_one_or_none()

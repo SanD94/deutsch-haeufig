@@ -15,6 +15,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 
 from deutsch_haufig.db import init_db
+from deutsch_haufig.routes.auth import router as auth_router
 from deutsch_haufig.routes.browse import router as browse_router
 from deutsch_haufig.routes.learn import router as learn_router
 from deutsch_haufig.routes.word import router as word_router
@@ -34,6 +35,7 @@ def create_app() -> FastAPI:
     def index(request: Request) -> HTMLResponse:
         return templates.TemplateResponse(request, "index.html", {"title": "Hello, Deutschland"})
 
+    app.include_router(auth_router)
     app.include_router(browse_router)
     app.include_router(word_router)
     app.include_router(learn_router)

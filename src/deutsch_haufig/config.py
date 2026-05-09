@@ -28,6 +28,15 @@ class Settings(BaseSettings):
     data_dir: Path = PROJECT_ROOT / "data"
     dwds_cache_dir: Path = PROJECT_ROOT / "data" / "dwds_cache"
 
+    # Auth (magic-link)
+    secret_key: str = "dev-secret-change-in-production"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    from_email: str = "noreply@deutsch-haufig.local"
+    app_url: str = "http://localhost:8000"
+
 
 settings = Settings()
 

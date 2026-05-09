@@ -18,6 +18,7 @@ dependencies = [
     "fsrs>=4.0",
     "python-multipart>=0.0.20",
     "playwright>=1.48",
+    "itsdangerous>=2.2",
 ]
 
 [project.optional-dependencies]
@@ -30,6 +31,7 @@ dev = [
 [project.scripts]
 web = "deutsch_haufig.main:run"
 ingest = "deutsch_haufig.ingest.pipeline:main"
+backup = "deutsch_haufig.backup:main"
 
 [build-system]
 requires = ["hatchling"]

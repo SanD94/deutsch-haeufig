@@ -43,13 +43,13 @@ Legend: 🟢 must-have · 🟡 should-have · 🔵 nice-to-have
 
 ---
 
-## M6 — Multi-user & deploy 
+## M6 — Multi-user & deploy - Completed
 
 🟡 Email-magic-link auth (FastAPI + itsdangerous).
 🟡 Per-user `ReviewCard` & settings; shared `Word/Sense/Example` corpus.
 🟡 Postgres option behind a config flag (SQLAlchemy URL swap).
 🟡 Dockerfile + `fly.io` / `render.com` deploy recipe.
-🟡 Backups: nightly dump of user's data on demand (JSON export).
+🟡 Backups: `uv run backup` — JSON export of all user data.
 
 ---
 
