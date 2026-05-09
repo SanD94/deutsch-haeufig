@@ -3,33 +3,61 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ title }} — deutsch-haufig</title>
+    <title>{{ title }} — deutsch-häufig</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc', 400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 800: '#3730a3', 900: '#312e81' },
+                    },
+                    fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] },
+                }
+            }
+        }
+    </script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <style>
         [x-cloak] { display: none !important; }
         html { scroll-behavior: smooth; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-feature-settings: 'cv02','cv03','cv04','cv11'; }
+        mark { background-color: #e0e7ff; color: #3730a3; border-radius: 0.125rem; padding: 0 0.125rem; }
     </style>
 </head>
-<body class="h-full bg-gray-50 text-gray-900 antialiased">
-    <header class="bg-white border-b border-gray-200 shadow-sm">
-        <nav class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3 text-sm">
-            <a href="/" class="font-bold text-lg text-blue-700 hover:text-blue-800 tracking-tight">deutsch‑häufig</a>
-            <span class="text-gray-300">·</span>
-            <a href="/browse" class="text-gray-600 hover:text-blue-700 font-medium transition-colors">Browse</a>
-            <span class="text-gray-300">·</span>
-            <a href="/learn" class="text-gray-600 hover:text-blue-700 font-medium transition-colors">Learn</a>
-            <span class="text-gray-300">·</span>
-            <a href="/stats" class="text-gray-600 hover:text-blue-700 font-medium transition-colors">Stats</a>
-            <span class="flex-1"></span>
-            {% if request.cookies.get("dh_user_id") %}
-            <a href="/auth/logout" class="text-gray-400 hover:text-red-600 text-xs transition-colors">Logout</a>
-            {% else %}
-            <a href="/auth/login" class="text-gray-400 hover:text-blue-600 text-xs transition-colors">Login</a>
-            {% endif %}
+<body class="h-full bg-stone-50 text-stone-800 antialiased" x-data="{ mobileNav: false }">
+    <header class="bg-white/80 backdrop-blur-sm border-b border-stone-200 sticky top-0 z-40">
+        <nav class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center gap-1 text-sm">
+            <a href="/" class="font-extrabold text-lg text-brand-700 hover:text-brand-800 tracking-tight mr-2 shrink-0">
+                <span class="hidden sm:inline">deutsch‑</span><span class="text-brand-500">häufig</span>
+            </a>
+            <div class="hidden sm:flex items-center gap-1 ml-2">
+                <a href="/browse" class="px-3 py-1.5 rounded-lg text-stone-500 hover:text-stone-800 hover:bg-stone-100 font-medium transition-colors">Browse</a>
+                <a href="/learn" class="px-3 py-1.5 rounded-lg text-stone-500 hover:text-stone-800 hover:bg-stone-100 font-medium transition-colors">Learn</a>
+                <a href="/stats" class="px-3 py-1.5 rounded-lg text-stone-500 hover:text-stone-800 hover:bg-stone-100 font-medium transition-colors">Stats</a>
+            </div>
+            <div class="flex-1"></div>
+            <div class="flex items-center gap-2">
+                {% if request.cookies.get("dh_user_id") %}
+                <a href="/auth/logout" class="text-xs text-stone-400 hover:text-red-500 font-medium transition-colors">Logout</a>
+                {% else %}
+                <a href="/auth/login" class="px-3 py-1.5 rounded-lg text-xs font-medium text-stone-400 hover:text-brand-600 hover:bg-brand-50 transition-colors">Login</a>
+                {% endif %}
+                <button @click="mobileNav = !mobileNav" class="sm:hidden p-1.5 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                </button>
+            </div>
         </nav>
+        <!-- Mobile nav -->
+        <div x-show="mobileNav" x-cloak @click.outside="mobileNav = false" class="sm:hidden border-t border-stone-200 bg-white px-4 py-2 space-y-1">
+            <a href="/browse" @click="mobileNav = false" class="block px-3 py-2 rounded-lg text-stone-600 hover:bg-stone-100 font-medium">Browse</a>
+            <a href="/learn" @click="mobileNav = false" class="block px-3 py-2 rounded-lg text-stone-600 hover:bg-stone-100 font-medium">Learn</a>
+            <a href="/stats" @click="mobileNav = false" class="block px-3 py-2 rounded-lg text-stone-600 hover:bg-stone-100 font-medium">Stats</a>
+        </div>
     </header>
-    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {% block content %}{% endblock %}
     </main>
     {% block scripts %}{% endblock %}

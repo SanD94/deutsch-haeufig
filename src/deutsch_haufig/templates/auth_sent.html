@@ -1,10 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="max-w-md mx-auto mt-12 text-center">
-    <div class="text-4xl mb-4">📨</div>
-    <h1 class="text-2xl font-bold text-gray-900 mb-2">Link gesendet</h1>
-    <p class="text-gray-500">Wir haben einen Login-Link an <strong>{{ email }}</strong> gesendet.</p>
-    <p class="text-sm text-gray-400 mt-4">Der Link ist 1 Stunde gültig.</p>
-    <a href="/" class="mt-6 inline-block text-blue-600 hover:underline text-sm">Zurück zur Startseite</a>
+<div class="max-w-sm mx-auto mt-16 text-center">
+    <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-500 mb-4">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+    </div>
+    <h1 class="text-xl font-bold text-stone-900 mb-2">Link gesendet</h1>
+    <p class="text-stone-500 text-sm">Login-Link an <strong class="text-stone-700">{{ email }}</strong> gesendet.</p>
+    <p class="text-xs text-stone-400 mt-2">1 Stunde gültig.</p>
+    <a href="/" class="mt-6 inline-block text-brand-600 hover:text-brand-700 text-sm font-medium">Zurück zur Startseite</a>
 </div>
 {% endblock %}

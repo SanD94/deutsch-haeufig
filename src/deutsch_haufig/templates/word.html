@@ -1,93 +1,70 @@
 {% extends "base.html" %}
 {% block content %}
 
-<style>
-  .dialogue-box {
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    border-radius: 0.5rem;
-    padding: 1rem;
-    margin-top: 0.75rem;
-  }
-  .dialogue-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .dialogue-label { font-weight: 700; color: #166534; }
-  .dialogue-source { color: #86efac; }
-  .dialogue-body { font-size: 0.9375rem; line-height: 1.75; color: #14532d; }
-  .dialogue-line { padding: 0.125rem 0; }
-  .dialogue-line:not(:last-child) { border-bottom: 1px dashed #dcfce7; }
-</style>
-
 <div class="max-w-3xl mx-auto">
   <!-- Word header -->
   <div class="flex items-start justify-between mb-8">
     <div>
-      <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">
-        {% if word.article %}<span class="text-blue-500 font-semibold text-2xl">{{ word.article }}</span> {% endif %}
+      <h1 class="text-3xl sm:text-4xl font-bold text-stone-900 tracking-tight">
+        {% if word.article %}<span class="text-brand-500 font-semibold text-2xl">{{ word.article }}</span> {% endif %}
         {{ word.lemma }}
       </h1>
-      <div class="flex items-center gap-3 mt-1">
-        <span class="text-sm text-gray-500">({{ word.pos }})</span>
+      <div class="flex items-center gap-3 mt-2">
+        <span class="text-sm text-stone-400">({{ word.pos }})</span>
         {% if word.level %}
-        <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium
-            {% if word.level == 'A1' %}bg-green-100 text-green-800
-            {% elif word.level == 'A2' %}bg-blue-100 text-blue-800
-            {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+            {% if word.level == 'A1' %}bg-emerald-100 text-emerald-700
+            {% elif word.level == 'A2' %}bg-sky-100 text-sky-700
+            {% elif word.level == 'B1' %}bg-amber-100 text-amber-700
+            {% else %}bg-stone-100 text-stone-600{% endif %}">
           {{ word.level }}
         </span>
         {% endif %}
-        <span class="text-sm text-gray-400">Häufigkeit {{ word.frequency }}/5</span>
+        <span class="text-xs text-stone-400">Häufigkeit {{ word.frequency }}/5</span>
       </div>
     </div>
     {% if word.lemma %}
-    <button onclick="speak('{{ word.lemma }}')" class="flex-shrink-0 p-2 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-            title="Aussprache anhören">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+    <button onclick="speak('{{ word.lemma }}')" class="flex-shrink-0 p-2.5 rounded-xl text-stone-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+            title="Aussprache">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
     </button>
     {% endif %}
   </div>
 
   {% if not has_any_definition %}
-  <div class="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 mb-6 text-sm text-yellow-800">
+  <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-6 text-sm text-amber-700">
     <strong>Definition fehlt</strong> — Für dieses Wort liegt noch keine deutsche Definition vor.
   </div>
   {% endif %}
 
   <!-- Senses -->
   {% for sense in senses %}
-  <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-4">
+  <div class="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 mb-4">
     {% if sense.register or sense.domain %}
-    <p class="text-xs text-gray-500 mb-1">
+    <p class="text-xs text-stone-400 mb-2">
       {% if sense.register %}<span class="italic">{{ sense.register }}</span>{% endif %}
       {% if sense.domain %}{% if sense.register %} · {% endif %}<span>{{ sense.domain }}</span>{% endif %}
     </p>
     {% endif %}
 
-    <p class="text-base sm:text-lg leading-relaxed text-gray-900 mb-4">
+    <p class="text-base sm:text-lg leading-relaxed text-stone-800 mb-4">
       {% if sense.has_definition %}
       {{ sense.definition_de }}
       {% else %}
-      <em class="text-gray-400">Definition fehlt</em>
+      <em class="text-stone-400">Definition fehlt</em>
       {% endif %}
     </p>
 
     {% if sense.examples %}
     <div class="mb-4">
-      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Beispiele</p>
+      <p class="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">Beispiele</p>
       <ul class="space-y-2">
         {% for ex in sense.examples %}
-        <li class="flex items-start gap-2 text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2 leading-relaxed"
+        <li class="flex items-start gap-2 text-sm text-stone-600 bg-stone-50 rounded-xl px-4 py-3 leading-relaxed"
             x-data x-init="$el.querySelector('.tts-btn')?.addEventListener('click', () => speak('{{ ex.text_de | e }}'))">
           <span class="flex-1">{{ ex.text_de }}</span>
           <button onclick="speak(this.dataset.text)" data-text="{{ ex.text_de | e }}"
-                  class="tts-btn flex-shrink-0 p-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                  class="tts-btn flex-shrink-0 p-1.5 rounded-lg text-stone-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
                   title="Aussprache">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
           </button>
@@ -102,25 +79,25 @@
     <div id="dialogue-container-{{ sense.id }}">
       {% set dialogue = sense.dialogues[0] if sense.dialogues else none %}
       {% if dialogue %}
-      <div class="dialogue-box" id="dialogue-{{ sense.id }}">
-        <div class="dialogue-header">
-          <span class="dialogue-label">Mini-Dialog</span>
-          <span class="dialogue-source">{{ dialogue.generated_by }}</span>
+      <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mt-3" id="dialogue-{{ sense.id }}">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold text-emerald-700 uppercase tracking-wider">Mini-Dialog</span>
+          <span class="text-xs text-emerald-400">{{ dialogue.generated_by }}</span>
         </div>
-        <div class="dialogue-body">
+        <div class="text-sm text-emerald-800 leading-relaxed space-y-0.5">
           {% for line in dialogue.text_de.strip().split('\n') %}
-          {% if line.strip() %}<p class="dialogue-line">{{ line.strip() }}</p>{% endif %}
+          {% if line.strip() %}<p class="py-0.5 {% if not loop.last %}border-b border-emerald-100/50{% endif %}">{{ line.strip() }}</p>{% endif %}
           {% endfor %}
         </div>
       </div>
       <button
-        class="mt-2 text-xs px-3 py-1.5 rounded font-semibold bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100 transition-colors"
+        class="mt-2 text-xs px-3 py-1.5 rounded-lg font-semibold bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 transition-colors"
         hx-post="/word/{{ word.id }}/dialogue/{{ sense.id }}"
         hx-target="#dialogue-container-{{ sense.id }}"
         hx-swap="innerHTML">Neu generieren</button>
       {% else %}
       <button
-        class="text-xs px-3 py-1.5 rounded font-semibold bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors"
+        class="text-xs px-3 py-1.5 rounded-lg font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors"
         hx-post="/word/{{ word.id }}/dialogue/{{ sense.id }}"
         hx-target="#dialogue-container-{{ sense.id }}"
         hx-swap="innerHTML">Mini-Dialog zeigen</button>
@@ -130,19 +107,19 @@
   </div>
   {% endfor %}
 
-  <p class="text-xs text-gray-400 mb-6">
+  <p class="text-xs text-stone-400 mb-8">
     Quelle: {{ dwds_attribution }}
   </p>
 
   <!-- Collocations -->
   {% if collocations %}
-  <div class="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm mb-4">
-    <h2 class="text-sm font-semibold text-gray-900 mb-3">Typische Verbindungen</h2>
+  <div class="bg-white rounded-2xl border border-stone-200 p-5 sm:p-6 shadow-sm mb-4">
+    <h2 class="text-sm font-semibold text-stone-800 mb-3">Typische Verbindungen</h2>
     <div class="flex flex-wrap gap-2">
       {% for col in collocations %}
-      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+      <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-brand-50 text-brand-700 border border-brand-100">
         {{ col.collocate }}
-        {% if col.frequency > 0 %}<span class="text-blue-400 font-normal">({{ col.frequency }})</span>{% endif %}
+        {% if col.frequency > 0 %}<span class="text-brand-400 font-normal">({{ col.frequency }})</span>{% endif %}
       </span>
       {% endfor %}
     </div>
@@ -151,17 +128,17 @@
 
   <!-- Verb conjugations -->
   {% if conjugations %}
-  <div class="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm mb-4">
-    <h2 class="text-sm font-semibold text-gray-900 mb-3">Konjugation</h2>
+  <div class="bg-white rounded-2xl border border-stone-200 p-5 sm:p-6 shadow-sm mb-4">
+    <h2 class="text-sm font-semibold text-stone-800 mb-3">Konjugation</h2>
     <div class="space-y-4">
       {% for group in conjugations %}
       <div>
-        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{{ group.tense }}</p>
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-1">
+        <p class="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">{{ group.tense }}</p>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
           {% for row in group.rows %}
-          <div class="text-sm">
-            <span class="text-gray-500 w-16 inline-block">{{ row.pronoun }}</span>
-            <span class="font-medium text-gray-900">{{ row.form }}</span>
+          <div class="text-sm bg-stone-50 rounded-lg px-3 py-1.5">
+            <span class="text-stone-400 w-14 inline-block">{{ row.pronoun }}</span>
+            <span class="font-medium text-stone-800">{{ row.form }}</span>
           </div>
           {% endfor %}
         </div>
@@ -171,10 +148,10 @@
   </div>
   {% endif %}
 
-  <div class="flex gap-3 text-sm">
-    <a href="/browse" class="text-blue-600 hover:text-blue-700 font-medium">&larr; Zurück zur Liste</a>
-    <span class="text-gray-300">|</span>
-    <a href="/learn" class="text-green-600 hover:text-green-700 font-medium">Weiter lernen &rarr;</a>
+  <div class="flex gap-3 text-sm pt-2">
+    <a href="/browse" class="text-brand-600 hover:text-brand-700 font-medium">← Zurück zur Liste</a>
+    <span class="text-stone-200">·</span>
+    <a href="/learn" class="text-emerald-600 hover:text-emerald-700 font-medium">Weiter lernen →</a>
   </div>
 </div>
 

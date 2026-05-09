@@ -5,12 +5,12 @@
 
   <!-- Header -->
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-    <h1 class="text-2xl font-bold text-gray-900">Statistiken</h1>
-    <div class="flex gap-2 text-sm">
-      <a href="/stats/csv" class="px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors">CSV export</a>
+    <h1 class="text-2xl font-bold text-stone-900">Statistiken</h1>
+    <div class="flex items-center gap-2 text-sm">
+      <a href="/stats/csv" class="px-3 py-1.5 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 transition-colors">CSV export</a>
       <div class="flex gap-1">
         {% for d in [7, 14, 30, 90] %}
-        <a href="/stats?days={{ d }}" class="px-3 py-1.5 rounded border {% if days == d %}bg-blue-600 text-white border-blue-600{% else %}border-gray-300 text-gray-600 hover:bg-gray-50{% endif %} transition-colors">{{ d }}d</a>
+        <a href="/stats?days={{ d }}" class="px-3 py-1.5 rounded-lg border {% if days == d %}bg-brand-600 text-white border-brand-600{% else %}border-stone-200 text-stone-500 hover:bg-stone-50{% endif %} transition-colors">{{ d }}d</a>
         {% endfor %}
       </div>
     </div>
@@ -18,116 +18,116 @@
 
   <!-- Summary cards -->
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-    <div class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-      <p class="text-xs text-gray-500 uppercase tracking-wide font-semibold">Karten</p>
-      <p class="text-2xl font-bold text-gray-900 mt-1">{{ total_cards }}</p>
+    <div class="bg-white rounded-xl border border-stone-200 p-4 shadow-sm">
+      <p class="text-xs text-stone-400 uppercase tracking-wider font-semibold">Karten</p>
+      <p class="text-2xl font-bold text-stone-900 mt-1">{{ total_cards }}</p>
     </div>
-    <div class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-      <p class="text-xs text-gray-500 uppercase tracking-wide font-semibold">Bewertungen</p>
-      <p class="text-2xl font-bold text-gray-900 mt-1">{{ total_reviews }}</p>
+    <div class="bg-white rounded-xl border border-stone-200 p-4 shadow-sm">
+      <p class="text-xs text-stone-400 uppercase tracking-wider font-semibold">Bewertungen</p>
+      <p class="text-2xl font-bold text-stone-900 mt-1">{{ total_reviews }}</p>
     </div>
-    <div class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-      <p class="text-xs text-gray-500 uppercase tracking-wide font-semibold">Fällig jetzt</p>
+    <div class="bg-white rounded-xl border border-stone-200 p-4 shadow-sm">
+      <p class="text-xs text-stone-400 uppercase tracking-wider font-semibold">Fällig jetzt</p>
       <p class="text-2xl font-bold text-amber-600 mt-1">{{ due_now }}</p>
     </div>
-    <div class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-      <p class="text-xs text-gray-500 uppercase tracking-wide font-semibold">Zeitraum</p>
-      <p class="text-2xl font-bold text-gray-900 mt-1">{{ days }} Tage</p>
+    <div class="bg-white rounded-xl border border-stone-200 p-4 shadow-sm">
+      <p class="text-xs text-stone-400 uppercase tracking-wider font-semibold">Zeitraum</p>
+      <p class="text-2xl font-bold text-stone-900 mt-1">{{ days }} Tage</p>
     </div>
   </div>
 
   <!-- Heatmap -->
-  <div class="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm">
-    <h2 class="text-lg font-semibold text-gray-900 mb-4">Aktivität</h2>
-    <div class="flex flex-wrap gap-1">
+  <div class="bg-white rounded-xl border border-stone-200 p-5 sm:p-6 shadow-sm">
+    <h2 class="text-base font-semibold text-stone-800 mb-4">Aktivität</h2>
+    <div class="flex flex-wrap gap-[3px]">
       {% for day in heatmap %}
-      <div class="w-3 h-3 rounded-sm {% if day.count == 0 %}bg-gray-100{% elif day.count <= 2 %}bg-green-200{% elif day.count <= 5 %}bg-green-400{% else %}bg-green-600{% endif %}"
+      <div class="w-[11px] h-[11px] rounded-[3px] {% if day.count == 0 %}bg-stone-100{% elif day.count <= 2 %}bg-emerald-200{% elif day.count <= 5 %}bg-emerald-400{% else %}bg-emerald-600{% endif %}"
            title="{{ day.date }}: {{ day.count }} Bewertungen"></div>
       {% endfor %}
     </div>
-    <div class="flex items-center gap-2 mt-2 text-xs text-gray-400">
+    <div class="flex items-center gap-2 mt-3 text-[11px] text-stone-400">
       <span>weniger</span>
-      <div class="w-3 h-3 rounded-sm bg-gray-100"></div>
-      <div class="w-3 h-3 rounded-sm bg-green-200"></div>
-      <div class="w-3 h-3 rounded-sm bg-green-400"></div>
-      <div class="w-3 h-3 rounded-sm bg-green-600"></div>
+      <div class="w-[11px] h-[11px] rounded-[3px] bg-stone-100"></div>
+      <div class="w-[11px] h-[11px] rounded-[3px] bg-emerald-200"></div>
+      <div class="w-[11px] h-[11px] rounded-[3px] bg-emerald-400"></div>
+      <div class="w-[11px] h-[11px] rounded-[3px] bg-emerald-600"></div>
       <span>mehr</span>
     </div>
   </div>
 
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
     <!-- Retention by level -->
-    <div class="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm">
-      <h2 class="text-lg font-semibold text-gray-900 mb-3">Retention nach Niveau</h2>
+    <div class="bg-white rounded-xl border border-stone-200 p-5 sm:p-6 shadow-sm">
+      <h2 class="text-base font-semibold text-stone-800 mb-3">Retention nach Niveau</h2>
       {% if level_retention %}
-      <div class="space-y-2">
+      <div class="space-y-3">
         {% for row in level_retention %}
         <div>
-          <div class="flex justify-between text-sm mb-0.5">
-            <span class="font-medium text-gray-700">{{ row.level }}</span>
-            <span class="text-gray-500">{{ row.good }}/{{ row.total }} ({{ row.pct }}%)</span>
+          <div class="flex justify-between text-sm mb-1">
+            <span class="font-medium text-stone-700">{{ row.level }}</span>
+            <span class="text-stone-400">{{ row.good }}/{{ row.total }} ({{ row.pct }}%)</span>
           </div>
-          <div class="w-full bg-gray-100 rounded-full h-2">
-            <div class="h-2 rounded-full {% if row.pct >= 80 %}bg-green-500{% elif row.pct >= 60 %}bg-amber-500{% else %}bg-red-500{% endif %}"
+          <div class="w-full bg-stone-100 rounded-full h-2">
+            <div class="h-2 rounded-full {% if row.pct >= 80 %}bg-emerald-500{% elif row.pct >= 60 %}bg-amber-500{% else %}bg-red-500{% endif %}"
                  style="width: {{ row.pct }}%"></div>
           </div>
         </div>
         {% endfor %}
       </div>
       {% else %}
-      <p class="text-sm text-gray-400">Noch keine Daten.</p>
+      <p class="text-sm text-stone-400">Noch keine Daten.</p>
       {% endif %}
     </div>
 
     <!-- Retention by POS -->
-    <div class="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm">
-      <h2 class="text-lg font-semibold text-gray-900 mb-3">Retention nach Wortart</h2>
+    <div class="bg-white rounded-xl border border-stone-200 p-5 sm:p-6 shadow-sm">
+      <h2 class="text-base font-semibold text-stone-800 mb-3">Retention nach Wortart</h2>
       {% if pos_retention %}
-      <div class="space-y-2">
+      <div class="space-y-3">
         {% for row in pos_retention %}
         <div>
-          <div class="flex justify-between text-sm mb-0.5">
-            <span class="font-medium text-gray-700">{{ row.pos }}</span>
-            <span class="text-gray-500">{{ row.good }}/{{ row.total }} ({{ row.pct }}%)</span>
+          <div class="flex justify-between text-sm mb-1">
+            <span class="font-medium text-stone-700">{{ row.pos }}</span>
+            <span class="text-stone-400">{{ row.good }}/{{ row.total }} ({{ row.pct }}%)</span>
           </div>
-          <div class="w-full bg-gray-100 rounded-full h-2">
-            <div class="h-2 rounded-full {% if row.pct >= 80 %}bg-green-500{% elif row.pct >= 60 %}bg-amber-500{% else %}bg-red-500{% endif %}"
+          <div class="w-full bg-stone-100 rounded-full h-2">
+            <div class="h-2 rounded-full {% if row.pct >= 80 %}bg-emerald-500{% elif row.pct >= 60 %}bg-amber-500{% else %}bg-red-500{% endif %}"
                  style="width: {{ row.pct }}%"></div>
           </div>
         </div>
         {% endfor %}
       </div>
       {% else %}
-      <p class="text-sm text-gray-400">Noch keine Daten.</p>
+      <p class="text-sm text-stone-400">Noch keine Daten.</p>
       {% endif %}
     </div>
   </div>
 
   <!-- Hardest words -->
-  <div class="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm">
-    <h2 class="text-lg font-semibold text-gray-900 mb-3">Schwierigste Wörter</h2>
+  <div class="bg-white rounded-xl border border-stone-200 p-5 sm:p-6 shadow-sm">
+    <h2 class="text-base font-semibold text-stone-800 mb-3">Schwierigste Wörter</h2>
     {% if hardest_words %}
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead>
-          <tr class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">
+          <tr class="text-left text-xs font-semibold text-stone-400 uppercase tracking-wider border-b border-stone-100">
             <th class="py-2 pr-3">Wort</th>
             <th class="py-2 pr-3">Niveau</th>
             <th class="py-2 pr-3 text-right">Bewertungen</th>
             <th class="py-2 pr-3 text-right">Retention</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-50">
+        <tbody class="divide-y divide-stone-50">
           {% for w in hardest_words %}
-          <tr class="hover:bg-gray-50">
-            <td class="py-2 pr-3 font-medium text-gray-900">
-              {% if w.article %}<span class="text-gray-500 font-normal">{{ w.article }}</span> {% endif %}
+          <tr class="hover:bg-stone-50 transition-colors">
+            <td class="py-2.5 pr-3 font-medium text-stone-800">
+              {% if w.article %}<span class="text-stone-400 font-normal">{{ w.article }}</span> {% endif %}
               {{ w.lemma }}
-              <span class="text-gray-400 text-xs">({{ w.pos }})</span>
+              <span class="text-stone-400 text-xs">({{ w.pos }})</span>
             </td>
-            <td class="py-2 pr-3 text-gray-500">{{ w.level or '—' }}</td>
-            <td class="py-2 pr-3 text-right text-gray-600">{{ w.total }}</td>
-            <td class="py-2 pr-3 text-right font-medium {% if w.pct < 50 %}text-red-600{% elif w.pct < 70 %}text-amber-600{% else %}text-green-600{% endif %}">
+            <td class="py-2.5 pr-3 text-stone-400">{{ w.level or '—' }}</td>
+            <td class="py-2.5 pr-3 text-right text-stone-500">{{ w.total }}</td>
+            <td class="py-2.5 pr-3 text-right font-medium {% if w.pct < 50 %}text-red-600{% elif w.pct < 70 %}text-amber-600{% else %}text-emerald-600{% endif %}">
               {{ w.pct }}%
             </td>
           </tr>
@@ -136,20 +136,20 @@
       </table>
     </div>
     {% else %}
-    <p class="text-sm text-gray-400">Mindestens 2 Bewertungen pro Karte nötig. Noch nicht genug Daten.</p>
+    <p class="text-sm text-stone-400">Mindestens 2 Bewertungen pro Karte nötig.</p>
     {% endif %}
   </div>
 
   <!-- Forecast -->
-  <div class="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm">
-    <h2 class="text-lg font-semibold text-gray-900 mb-3">Vorhersage (14 Tage)</h2>
+  <div class="bg-white rounded-xl border border-stone-200 p-5 sm:p-6 shadow-sm">
+    <h2 class="text-base font-semibold text-stone-800 mb-3">Vorhersage (14 Tage)</h2>
     <div class="flex items-end gap-1 h-24">
       {% set max_f = forecast | map(attribute='count') | max %}
       {% for day in forecast %}
       <div class="flex-1 flex flex-col items-center">
-        <div class="w-full {% if day.count > 0 %}bg-blue-500{% else %}bg-gray-100{% endif %} rounded-t"
+        <div class="w-full {% if day.count > 0 %}bg-brand-500{% else %}bg-stone-100{% endif %} rounded-t"
              style="height: {{ (day.count / max_f * 100) | round if max_f > 0 else 0 }}%"></div>
-        <span class="text-xs text-gray-400 mt-1 {% if loop.index % 7 != 0 %}hidden sm:block{% endif %}">
+        <span class="text-[10px] text-stone-400 mt-1 {% if loop.index % 7 != 0 %}hidden sm:block{% endif %}">
           {{ day.date[5:] }}
         </span>
       </div>
@@ -158,38 +158,41 @@
   </div>
 
   <!-- Per-card history -->
-  <div class="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm">
-    <h2 class="text-lg font-semibold text-gray-900 mb-3">Karten-Verlauf (letzte 50)</h2>
+  <div class="bg-white rounded-xl border border-stone-200 p-5 sm:p-6 shadow-sm">
+    <h2 class="text-base font-semibold text-stone-800 mb-3">Karten-Verlauf (letzte 50)</h2>
     {% if card_history %}
-    <div class="space-y-3">
+    <div class="space-y-2">
       {% for card in card_history %}
-      <details class="bg-gray-50 rounded-lg p-3 text-sm">
-        <summary class="cursor-pointer font-medium text-gray-800">
-          {% if card.article %}{{ card.article }} {% endif %}{{ card.lemma }}
-          <span class="text-gray-400 font-normal">— {{ card.state }} · {{ card.reps }}× · {{ card.lapses }} Fehler</span>
+      <details class="bg-stone-50 rounded-xl p-3 text-sm group open:ring-1 open:ring-brand-200/50 transition-all">
+        <summary class="cursor-pointer font-medium text-stone-700 list-none flex items-center gap-2">
+          <svg class="w-3.5 h-3.5 text-stone-300 group-open:text-brand-500 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          <span>
+            {% if card.article %}{{ card.article }} {% endif %}{{ card.lemma }}
+            <span class="text-stone-400 font-normal">— {{ card.state }} · {{ card.reps }}×</span>
+          </span>
         </summary>
-        <div class="mt-2 pl-2 border-l-2 border-gray-200 space-y-1">
-          <p class="text-xs text-gray-500">{{ card.sense_definition }}</p>
+        <div class="mt-3 pl-5 border-l-2 border-stone-200 space-y-1.5">
+          <p class="text-xs text-stone-500">{{ card.sense_definition }}</p>
           {% if card.stability is not none %}
-          <p class="text-xs text-gray-500">Stabilität: {{ card.stability }}d · Schwierigkeit: {{ card.difficulty }}</p>
+          <p class="text-xs text-stone-400">Stabilität: {{ card.stability }}d · Schwierigkeit: {{ card.difficulty }}</p>
           {% endif %}
           {% if card.logs %}
-          <table class="w-full text-xs mt-1">
+          <table class="w-full text-xs mt-2">
             <thead>
-              <tr class="text-gray-400">
-                <th class="text-left pr-2">Zeit</th>
-                <th class="text-left pr-2">Bewertung</th>
-                <th class="text-right pr-2">Verstrichen</th>
-                <th class="text-right">Geplant</th>
+              <tr class="text-stone-400">
+                <th class="text-left pr-2 pb-1">Zeit</th>
+                <th class="text-left pr-2 pb-1">Bewertung</th>
+                <th class="text-right pr-2 pb-1">Verstrichen</th>
+                <th class="text-right pb-1">Geplant</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
+            <tbody class="divide-y divide-stone-100">
               {% for log in card.logs[:10] %}
               <tr>
-                <td class="pr-2 py-0.5 text-gray-500">{{ log.ts[:10] if log.ts else '—' }}</td>
+                <td class="pr-2 py-0.5 text-stone-400">{{ log.ts[:10] if log.ts else '—' }}</td>
                 <td class="pr-2 py-0.5">{{ {1:'Again',2:'Hard',3:'Good',4:'Easy'}[log.rating] or log.rating }}</td>
-                <td class="text-right pr-2 py-0.5 text-gray-500">{{ log.elapsed_days|round(1) if log.elapsed_days is not none else '—' }}d</td>
-                <td class="text-right py-0.5 text-gray-500">{{ log.scheduled_days|round(1) if log.scheduled_days is not none else '—' }}d</td>
+                <td class="text-right pr-2 py-0.5 text-stone-400">{{ log.elapsed_days|round(1) if log.elapsed_days is not none else '—' }}d</td>
+                <td class="text-right py-0.5 text-stone-400">{{ log.scheduled_days|round(1) if log.scheduled_days is not none else '—' }}d</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -200,7 +203,7 @@
       {% endfor %}
     </div>
     {% else %}
-    <p class="text-sm text-gray-400">Noch keine Karten.</p>
+    <p class="text-sm text-stone-400">Noch keine Karten.</p>
     {% endif %}
   </div>
 
