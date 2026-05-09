@@ -431,3 +431,41 @@ def learn_rate(
 def learn_finish(request: Request):
     """Finish the session — redirect to /learn which will reset the queue."""
     return RedirectResponse(url="/learn", status_code=303)
+
+
+@router.post("/learn/bury/{card_id}")
+def learn_bury(
+    request: Request,
+    session: SessionDep,
+    card_id: int,
+):
+    """Bury a card until tomorrow."""
+    user, _ = _ensure_user(session)
+    card = session.execute(
+        select(ReviewCard).where(ReviewCard.id == card_id, ReviewCard.user_id == user.id)
+    ).scalar_one_or_none()
+    if card is None:
+        return RedirectResponse(url="/learn", status_code=303)
+    now = datetime.now(UTC)
+    tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    card.due = tomorrow
+    session.commit()
+    return RedirectResponse(url="/learn", status_code=303)
+
+
+@router.post("/learn/suspend/{card_id}")
+def learn_suspend(
+    request: Request,
+    session: SessionDep,
+    card_id: int,
+):
+    """Suspend a card indefinitely (sets due far in the future)."""
+    user, _ = _ensure_user(session)
+    card = session.execute(
+        select(ReviewCard).where(ReviewCard.id == card_id, ReviewCard.user_id == user.id)
+    ).scalar_one_or_none()
+    if card is None:
+        return RedirectResponse(url="/learn", status_code=303)
+    card.due = datetime.now(UTC) + timedelta(days=365 * 10)  # 10 years
+    session.commit()
+    return RedirectResponse(url="/learn", status_code=303)

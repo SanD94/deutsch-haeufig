@@ -31,7 +31,7 @@ Legend: 🟢 must-have · 🟡 should-have · 🔵 nice-to-have
 
 ---
 
-## M5 — Polish for first real use 
+## M5 — Polish for first real use - Completed
 
 🟢 Tailwind UI pass: typography for German (proper hyphenation, lang="de"), card layout, dark mode.
 🟢 Browse: pagination + saved-filter URLs.

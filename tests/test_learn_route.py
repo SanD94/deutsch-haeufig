@@ -250,6 +250,6 @@ class TestHeaderCounters:
     def test_counters_displayed(self, client, sample_words):
         resp = client.get("/learn")
         assert resp.status_code == 200
-        assert "Due today" in resp.text
-        assert "New today" in resp.text
+        assert "Fällig" in resp.text
+        assert "Neu" in resp.text
         assert "Retention 30d" in resp.text

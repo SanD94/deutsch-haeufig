@@ -1,7 +1,23 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Hello, Deutschland</h1>
-<p>Willkommen bei <strong>deutsch-haufig</strong> — die häufigsten deutschen Wörter, mit
-einsprachigen Definitionen und Wiederholung nach FSRS.</p>
-<p>Status: <em>M0 — Projektgerüst.</em></p>
+<div class="max-w-2xl mx-auto text-center py-12 sm:py-20">
+    <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight">
+        Deutsch<span class="text-blue-600">häufig</span>
+    </h1>
+    <p class="mt-4 text-lg text-gray-600 leading-relaxed">
+        Die häufigsten deutschen Wörter lernen — mit einsprachigen Definitionen und
+        <a href="https://github.com/open-spaced-repetition/py-fsrs" class="text-blue-600 hover:underline" target="_blank" rel="noopener">FSRS</a>-gesteuerter Wiederholung.
+    </p>
+    <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+        <a href="/browse" class="inline-flex items-center px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors shadow-sm">
+            Wörter durchstöbern
+        </a>
+        <a href="/learn" class="inline-flex items-center px-6 py-3 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors shadow-sm">
+            Lernen beginnen
+        </a>
+    </div>
+    <p class="mt-8 text-xs text-gray-400">
+        Daten von <a href="https://www.dwds.de" class="hover:text-gray-600" target="_blank" rel="noopener">DWDS</a> · Quellen auf <a href="https://github.com" class="hover:text-gray-600" target="_blank" rel="noopener">GitHub</a>
+    </p>
+</div>
 {% endblock %}

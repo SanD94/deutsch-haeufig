@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+
 <style>
   .dialogue-box {
     background: #f0fdf4;
@@ -17,103 +18,83 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
-  .dialogue-label {
-    font-weight: 700;
-    color: #166534;
-  }
-  .dialogue-source {
-    color: #86efac;
-  }
-  .dialogue-body {
-    font-size: 0.9375rem;
-    line-height: 1.75;
-    color: #14532d;
-  }
-  .dialogue-line {
-    padding: 0.125rem 0;
-  }
-  .dialogue-line:not(:last-child) {
-    border-bottom: 1px dashed #dcfce7;
-  }
-  .dialogue-btn {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.75rem;
-    border-radius: 0.375rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .dialogue-btn-generate {
-    background: #dcfce7;
-    color: #166534;
-    border: 1px solid #bbf7d0;
-  }
-  .dialogue-btn-generate:hover {
-    background: #bbf7d0;
-  }
-  .dialogue-btn-regenerate {
-    background: #fef3c7;
-    color: #92400e;
-    border: 1px solid #fde68a;
-  }
-  .dialogue-btn-regenerate:hover {
-    background: #fde68a;
-  }
-  .dialogue-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  .dialogue-error {
-    color: #991b1b;
-    font-size: 0.875rem;
-    margin-top: 0.5rem;
-  }
+  .dialogue-label { font-weight: 700; color: #166534; }
+  .dialogue-source { color: #86efac; }
+  .dialogue-body { font-size: 0.9375rem; line-height: 1.75; color: #14532d; }
+  .dialogue-line { padding: 0.125rem 0; }
+  .dialogue-line:not(:last-child) { border-bottom: 1px dashed #dcfce7; }
 </style>
 
-<div style="max-width: 48rem; margin: 0 auto; padding: 1rem;">
-  <h1 style="font-size: 1.875rem; font-weight: 700; margin-bottom: 0.25rem;">
-    {% if word.article %}<span style="color: #3b82f6;">{{ word.article }}</span> {% endif %}
-    {{ word.lemma }}
-    <span style="font-size: 0.875rem; color: #9ca3af; font-weight: 400;">({{ word.pos }})</span>
-  </h1>
-
-  <p style="font-size: 0.875rem; color: #6b7280; margin-bottom: 1.5rem;">
-    {% if word.level %}
-    <span style="display: inline-block; background: #dbeafe; color: #1e40af; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600;">Niveau {{ word.level }}</span>
+<div class="max-w-3xl mx-auto">
+  <!-- Word header -->
+  <div class="flex items-start justify-between mb-8">
+    <div>
+      <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">
+        {% if word.article %}<span class="text-blue-500 font-semibold text-2xl">{{ word.article }}</span> {% endif %}
+        {{ word.lemma }}
+      </h1>
+      <div class="flex items-center gap-3 mt-1">
+        <span class="text-sm text-gray-500">({{ word.pos }})</span>
+        {% if word.level %}
+        <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium
+            {% if word.level == 'A1' %}bg-green-100 text-green-800
+            {% elif word.level == 'A2' %}bg-blue-100 text-blue-800
+            {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+          {{ word.level }}
+        </span>
+        {% endif %}
+        <span class="text-sm text-gray-400">Häufigkeit {{ word.frequency }}/5</span>
+      </div>
+    </div>
+    {% if word.lemma %}
+    <button onclick="speak('{{ word.lemma }}')" class="flex-shrink-0 p-2 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+            title="Aussprache anhören">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+    </button>
     {% endif %}
-    <span style="margin-left: 0.5rem;">Häufigkeit {{ word.frequency }}/5</span>
-  </p>
+  </div>
 
   {% if not has_any_definition %}
-  <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1rem;">
-    <p style="font-size: 0.875rem; color: #92400e;"><strong>Definition fehlt</strong> — Für dieses Wort liegt noch keine deutsche Definition vor.</p>
+  <div class="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 mb-6 text-sm text-yellow-800">
+    <strong>Definition fehlt</strong> — Für dieses Wort liegt noch keine deutsche Definition vor.
   </div>
   {% endif %}
 
+  <!-- Senses -->
   {% for sense in senses %}
-  <div style="background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
+  <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-4">
     {% if sense.register or sense.domain %}
-    <p style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem;">
-      {% if sense.register %}<span style="font-style: italic;">{{ sense.register }}</span>{% endif %}
-      {% if sense.domain %}<span style="margin-left: 0.25rem;">{{ sense.domain }}</span>{% endif %}
+    <p class="text-xs text-gray-500 mb-1">
+      {% if sense.register %}<span class="italic">{{ sense.register }}</span>{% endif %}
+      {% if sense.domain %}{% if sense.register %} · {% endif %}<span>{{ sense.domain }}</span>{% endif %}
     </p>
     {% endif %}
 
-    <p style="font-size: 1.0625rem; line-height: 1.6; color: #111827; margin-bottom: 0.75rem;">
+    <p class="text-base sm:text-lg leading-relaxed text-gray-900 mb-4">
       {% if sense.has_definition %}
       {{ sense.definition_de }}
       {% else %}
-      <em style="color: #9ca3af;">Definition fehlt</em>
+      <em class="text-gray-400">Definition fehlt</em>
       {% endif %}
     </p>
 
     {% if sense.examples %}
-    <p style="font-size: 0.75rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">Beispiele</p>
-    <ul style="font-size: 0.9375rem; line-height: 1.6; color: #374151; padding-left: 1.25rem; margin-bottom: 0.75rem;">
-      {% for ex in sense.examples %}
-      <li style="margin-bottom: 0.25rem;">{{ ex.text_de }}</li>
-      {% endfor %}
-    </ul>
+    <div class="mb-4">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Beispiele</p>
+      <ul class="space-y-2">
+        {% for ex in sense.examples %}
+        <li class="flex items-start gap-2 text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2 leading-relaxed"
+            x-data x-init="$el.querySelector('.tts-btn')?.addEventListener('click', () => speak('{{ ex.text_de | e }}'))">
+          <span class="flex-1">{{ ex.text_de }}</span>
+          <button onclick="speak(this.dataset.text)" data-text="{{ ex.text_de | e }}"
+                  class="tts-btn flex-shrink-0 p-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                  title="Aussprache">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+          </button>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
     {% endif %}
 
     <!-- Dialogue section -->
@@ -128,37 +109,46 @@
         </div>
         <div class="dialogue-body">
           {% for line in dialogue.text_de.strip().split('\n') %}
-          {% if line.strip() %}
-          <p class="dialogue-line">{{ line.strip() }}</p>
-          {% endif %}
+          {% if line.strip() %}<p class="dialogue-line">{{ line.strip() }}</p>{% endif %}
           {% endfor %}
         </div>
       </div>
       <button
-        class="dialogue-btn dialogue-btn-regenerate"
+        class="mt-2 text-xs px-3 py-1.5 rounded font-semibold bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100 transition-colors"
         hx-post="/word/{{ word.id }}/dialogue/{{ sense.id }}"
         hx-target="#dialogue-container-{{ sense.id }}"
-        hx-swap="innerHTML"
-      >Neu generieren</button>
+        hx-swap="innerHTML">Neu generieren</button>
       {% else %}
       <button
-        class="dialogue-btn dialogue-btn-generate"
+        class="text-xs px-3 py-1.5 rounded font-semibold bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors"
         hx-post="/word/{{ word.id }}/dialogue/{{ sense.id }}"
         hx-target="#dialogue-container-{{ sense.id }}"
-        hx-swap="innerHTML"
-      >Mini-Dialog zeigen</button>
+        hx-swap="innerHTML">Mini-Dialog zeigen</button>
       {% endif %}
     </div>
     {% endif %}
   </div>
   {% endfor %}
 
-  <p style="font-size: 0.75rem; color: #9ca3af; margin-top: 1rem;">
+  <p class="text-xs text-gray-400 mb-6">
     Quelle: {{ dwds_attribution }}
   </p>
 
-  <p style="margin-top: 1rem;">
-    <a href="/browse" style="color: #3b82f6; font-size: 0.875rem;">&larr; Zurück zur Liste</a>
-  </p>
+  <div class="flex gap-3 text-sm">
+    <a href="/browse" class="text-blue-600 hover:text-blue-700 font-medium">&larr; Zurück zur Liste</a>
+    <span class="text-gray-300">|</span>
+    <a href="/learn" class="text-green-600 hover:text-green-700 font-medium">Weiter lernen &rarr;</a>
+  </div>
 </div>
+
+<script>
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'de-DE';
+  utterance.rate = 0.9;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
+}
+</script>
 {% endblock %}

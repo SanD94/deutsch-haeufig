@@ -28,7 +28,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="deutsch-haufig", version="0.0.1", lifespan=lifespan)
+    app = FastAPI(title="deutsch-haufig", version="0.1.0", lifespan=lifespan)
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request) -> HTMLResponse:

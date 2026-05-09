@@ -1,74 +1,130 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Browse <small>({{ total }} Wörter)</small></h1>
+<div class="max-w-5xl mx-auto">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">Wörter durchstöbern</h1>
+        <span class="text-sm text-gray-500">
+            {% if total == 1 %}1 Wort{% elif total > 1 %}{{ total }} Wörter{% endif %}
+        </span>
+    </div>
 
-<form method="get" action="/browse" class="filters">
-    <label>
-        Suche
-        <input type="search" name="q" value="{{ filters.q or '' }}" placeholder="Lemma…">
-    </label>
+    <!-- Filters -->
+    <form method="get" action="/browse" class="bg-white rounded-lg border border-gray-200 p-4 mb-6 space-y-3 sm:space-y-0 sm:flex sm:flex-wrap sm:items-end sm:gap-3">
+        <div class="flex-1 min-w-[160px]">
+            <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Suche</label>
+            <input type="search" name="q" value="{{ filters.q or '' }}" placeholder="Lemma…"
+                   class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Niveau</label>
+            <select name="level"
+                    class="rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">Alle</option>
+                {% for lvl in known_levels %}
+                <option value="{{ lvl }}" {% if filters.level == lvl %}selected{% endif %}>{{ lvl }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Wortart</label>
+            <select name="pos"
+                    class="rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">Alle</option>
+                {% for p in known_pos %}
+                <option value="{{ p }}" {% if filters.pos == p %}selected{% endif %}>{{ p }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Häufigkeit</label>
+            <select name="frequency"
+                    class="rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">Alle</option>
+                {% for f in known_frequencies %}
+                <option value="{{ f }}" {% if filters.frequency == f %}selected{% endif %}>{{ f }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex gap-2">
+            <button type="submit" class="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors">Filtern</button>
+            <a href="/browse" class="px-4 py-2 rounded-md border border-gray-300 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors">Reset</a>
+        </div>
+    </form>
 
-    <label>
-        Niveau
-        <select name="level">
-            <option value="">Alle</option>
-            {% for lvl in known_levels %}
-            <option value="{{ lvl }}" {% if filters.level == lvl %}selected{% endif %}>{{ lvl }}</option>
-            {% endfor %}
-        </select>
-    </label>
+    <!-- Word list -->
+    {% if words %}
+    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 border-b border-gray-200 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <th class="px-4 py-3">Wort</th>
+                    <th class="px-4 py-3">Wortart</th>
+                    <th class="px-4 py-3">Niveau</th>
+                    <th class="px-4 py-3 text-right">Häufigkeit</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for word in words %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3">
+                        <a href="/word/{{ word.id }}" class="font-medium text-blue-700 hover:text-blue-800">
+                            {% if word.article %}<span class="text-gray-500 font-normal">{{ word.article }}</span> {% endif %}
+                            {{ word.lemma }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ word.pos }}</td>
+                    <td class="px-4 py-3">
+                        {% if word.level %}
+                        <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if word.level == 'A1' %}bg-green-100 text-green-800
+                            {% elif word.level == 'A2' %}bg-blue-100 text-blue-800
+                            {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                            {{ word.level }}
+                        </span>
+                        {% else %}
+                        <span class="text-gray-300">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <span class="text-gray-500">{{ word.frequency }}/5</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
-    <label>
-        Wortart
-        <select name="pos">
-            <option value="">Alle</option>
-            {% for p in known_pos %}
-            <option value="{{ p }}" {% if filters.pos == p %}selected{% endif %}>{{ p }}</option>
-            {% endfor %}
-        </select>
-    </label>
+    <!-- Pagination -->
+    {% if total > limit %}
+    <div class="flex items-center justify-between mt-6 text-sm">
+        <span class="text-gray-500">
+            {{ offset + 1 }}–{{ [offset + limit, total] | min }} von {{ total }}
+        </span>
+        <div class="flex gap-2">
+            {% if offset > 0 %}
+            <a href="?{{ _build_q(filters, limit, 0) }}"
+               class="px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors">Erste</a>
+            <a href="?{{ _build_q(filters, limit, [offset - limit, 0] | max) }}"
+               class="px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors">← Vorherige</a>
+            {% endif %}
+            {% if offset + limit < total %}
+            <a href="?{{ _build_q(filters, limit, offset + limit) }}"
+               class="px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors">Nächste →</a>
+            <a href="?{{ _build_q(filters, limit, total - limit) }}"
+               class="px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors">Letzte</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 
-    <label>
-        Häufigkeit
-        <select name="frequency">
-            <option value="">Alle</option>
-            {% for f in known_frequencies %}
-            <option value="{{ f }}" {% if filters.frequency == f %}selected{% endif %}>{{ f }}</option>
-            {% endfor %}
-        </select>
-    </label>
-
-    <button type="submit">Filtern</button>
-    <a href="/browse">Zurücksetzen</a>
-</form>
-
-{% if words %}
-<table class="words">
-    <thead>
-        <tr>
-            <th>Wort</th>
-            <th>Wortart</th>
-            <th>Niveau</th>
-            <th>Häufigkeit</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for word in words %}
-        <tr>
-            <td>
-                <a href="/word/{{ word.id }}">
-                {% if word.article %}<em>{{ word.article }}</em> {% endif %}
-                <strong>{{ word.lemma }}</strong>
-                </a>
-            </td>
-            <td>{{ word.pos }}</td>
-            <td>{{ word.level or '—' }}</td>
-            <td>{{ word.frequency }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p><em>Keine Treffer. <code>uv run ingest</code> ausführen, um den Korpus zu laden.</em></p>
-{% endif %}
+    {% else %}
+    <div class="text-center py-16">
+        <p class="text-gray-500 text-lg">Keine Treffer.</p>
+        {% if not filters.q and not filters.level and not filters.pos and not filters.frequency %}
+        <p class="text-gray-400 text-sm mt-2"><code>uv run ingest</code> ausführen, um den Korpus zu laden.</p>
+        {% endif %}
+        <a href="/browse" class="mt-4 inline-block text-blue-600 hover:underline text-sm">Filter zurücksetzen</a>
+    </div>
+    {% endif %}
+</div>
 {% endblock %}

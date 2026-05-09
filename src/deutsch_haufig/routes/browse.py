@@ -93,7 +93,7 @@ def browse(
             "filters": {
                 "level": level,
                 "pos": pos,
-                "frequency": freq,
+                "frequency": frequency if frequency else None,
                 "q": q,
             },
             "limit": limit,
