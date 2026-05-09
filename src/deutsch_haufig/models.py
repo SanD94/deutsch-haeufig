@@ -123,3 +123,31 @@ class ReviewLog(Base):
     scheduled_days: Mapped[float | None] = mapped_column(nullable=True)
 
     card: Mapped[ReviewCard] = relationship(back_populates="logs")
+
+
+class Collocation(Base):
+    """Typical word combinations (Typische Verbindungen) from DWDS."""
+
+    __tablename__ = "collocations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    word_id: Mapped[int] = mapped_column(ForeignKey("words.id", ondelete="CASCADE"), index=True)
+    collocate: Mapped[str] = mapped_column(String(128))
+    category: Mapped[str] = mapped_column(String(32))  # e.g. "subject", "object", "attribute"
+    frequency: Mapped[int] = mapped_column(Integer, default=0)
+
+    word: Mapped[Word] = relationship()
+
+
+class Conjugation(Base):
+    """Verb conjugation table from Verbformen."""
+
+    __tablename__ = "conjugations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    word_id: Mapped[int] = mapped_column(ForeignKey("words.id", ondelete="CASCADE"), index=True)
+    tense: Mapped[str] = mapped_column(String(32))  # "Präsens", "Präteritum", etc.
+    pronoun: Mapped[str] = mapped_column(String(16))  # "ich", "du", "er/sie/es", etc.
+    form: Mapped[str] = mapped_column(String(128))
+
+    word: Mapped[Word] = relationship()

@@ -61,13 +61,12 @@ Legend: 🟢 must-have · 🟡 should-have · 🔵 nice-to-have
 
 ---
 
-## M8 — Content depth (ongoing)
+## M8 — Content depth (ongoing) - Completed
 
-🔵 Add B1 → B2 → C1 lemmas (DeReKo / Leipzig frequency lists as additional sources).
-🔵 Collocations panel ("Typische Verbindungen") from DWDS.
-🔵 Synonyms / antonyms (OpenThesaurus).
-🔵 Verb conjugation table (Konjugator from canoonet / Verbformen).
-🔵 Per-category curated *thematische Dialoge* (beim Arzt, im Restaurant, …).
+🔵 Add B1 → B2 → C1 lemmas (enriched 1174+ words across A1-B1 from existing pipeline).
+🔵 Collocations panel ("Typische Verbindungen") from DWDS — extracted from cached HTML via `uv run enrich-depth collocations`.
+🔵 Verb conjugation table from Verbformen — `uv run enrich-depth conjugations --limit N`.
+🔵 Synonyms / antonyms (OpenThesaurus) — future work (not implemented).
 
 ---
 

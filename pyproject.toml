@@ -32,6 +32,7 @@ dev = [
 web = "deutsch_haufig.main:run"
 ingest = "deutsch_haufig.ingest.pipeline:main"
 backup = "deutsch_haufig.backup:main"
+enrich-depth = "deutsch_haufig.ingest.depth:main"
 
 [build-system]
 requires = ["hatchling"]

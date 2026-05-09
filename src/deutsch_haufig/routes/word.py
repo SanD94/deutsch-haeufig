@@ -18,7 +18,7 @@ from deutsch_haufig.dialogue import (
     DialogueGenerationError,
     provider_from_config,
 )
-from deutsch_haufig.models import Dialogue, Example, Sense, Word
+from deutsch_haufig.models import Collocation, Conjugation, Dialogue, Example, Sense, Word
 from deutsch_haufig.schemas import WordDetail
 from deutsch_haufig.templating import templates
 
@@ -112,8 +112,43 @@ def word_detail(
             "has_any_definition": has_any_def,
             "dwds_attribution": "DWDS — Digitales Wörterbuch der deutschen Sprache",
             "dialogue_enabled": _dialogue_provider_enabled(),
+            "collocations": _get_collocations(session, word_id),
+            "conjugations": _get_conjugations(session, word, word_id),
         },
     )
+
+
+def _get_collocations(session: Session, word_id: int) -> list[dict]:
+    entries = (
+        session.execute(
+            select(Collocation)
+            .where(Collocation.word_id == word_id)
+            .order_by(Collocation.frequency.desc())
+            .limit(20)
+        )
+        .scalars()
+        .all()
+    )
+    return [
+        {"collocate": e.collocate, "category": e.category, "frequency": e.frequency}
+        for e in entries
+    ]
+
+
+def _get_conjugations(session: Session, word: Word, word_id: int) -> list[dict]:
+    if word.pos != "verb":
+        return []
+    entries = (
+        session.execute(
+            select(Conjugation).where(Conjugation.word_id == word_id).order_by(Conjugation.id)
+        )
+        .scalars()
+        .all()
+    )
+    grouped: dict[str, list] = {}
+    for e in entries:
+        grouped.setdefault(e.tense, []).append({"pronoun": e.pronoun, "form": e.form})
+    return [{"tense": tense, "rows": rows} for tense, rows in grouped.items()]
 
 
 @router.post("/word/{word_id}/dialogue/{sense_id}")
