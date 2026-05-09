@@ -112,7 +112,6 @@
             <form action="/learn/rate" method="post" class="grid grid-cols-4 gap-2 sm:gap-3">
               <input type="hidden" name="card_id" value="{{ card.id }}">
               <input type="hidden" name="sense_id" value="{{ sense.id }}">
-              <input type="hidden" name="rating" x-model="selectedRating">
 
               <button type="submit" name="rating" value="1"
                 @click="selectedRating=1"
@@ -193,11 +192,9 @@ function learnApp() {
       }
       if (this.revealed && ['1', '2', '3', '4'].includes(e.key)) {
         this.selectedRating = parseInt(e.key);
-        const form = document.querySelector('form[action="/learn/rate"]');
-        if (form) {
-          const ratingInput = form.querySelector('input[name="rating"]');
-          ratingInput.value = e.key;
-          form.submit();
+        const btn = document.querySelector(`button[name="rating"][value="${e.key}"]`);
+        if (btn && btn.form) {
+          btn.form.submit();
         }
       }
     },
