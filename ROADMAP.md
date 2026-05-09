@@ -53,11 +53,11 @@ Legend: 🟢 must-have · 🟡 should-have · 🔵 nice-to-have
 
 ---
 
-## M7 — Statistics & insights 
+## M7 — Statistics & insights - Completed
 
-🔵 `/stats` page: heatmap of reviews, retention by level/category, hardest words list, forecast of upcoming load.
+🔵 `/stats` page: heatmap of reviews, retention by level/category, hardest words list, forecast of upcoming load (14 days).
 🔵 Per-card history view (all `ReviewLog` entries).
-🔵 CSV export of progress.
+🔵 CSV export of progress (`GET /stats/csv`).
 
 ---
 

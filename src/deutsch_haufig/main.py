@@ -18,6 +18,7 @@ from deutsch_haufig.db import init_db
 from deutsch_haufig.routes.auth import router as auth_router
 from deutsch_haufig.routes.browse import router as browse_router
 from deutsch_haufig.routes.learn import router as learn_router
+from deutsch_haufig.routes.stats import router as stats_router
 from deutsch_haufig.routes.word import router as word_router
 from deutsch_haufig.templating import templates
 
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
     app.include_router(browse_router)
     app.include_router(word_router)
     app.include_router(learn_router)
+    app.include_router(stats_router)
     return app
 
 
