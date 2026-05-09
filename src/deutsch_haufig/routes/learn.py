@@ -161,7 +161,7 @@ def _get_due_cards(
     now: datetime,
     limit: int,
 ) -> list[ReviewCard]:
-    """Return review cards that are due (due <= now) or new (never reviewed), ordered by due date."""
+    """Return review cards due or new (unreviewed), ordered by reps then due."""
     stmt = (
         select(ReviewCard)
         .where(ReviewCard.user_id == user_id)
