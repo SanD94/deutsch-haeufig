@@ -222,6 +222,7 @@ def _get_due_cards(
         )
         .where(ReviewCard.user_id == user_id)
         .where(ReviewCard.due <= now)
+        .where(ReviewCard.state != "new")
         .order_by(
             ReviewCard.reps.asc(),
             ReviewCard.due.asc(),
@@ -380,8 +381,11 @@ def learn(
         }
 
     # Count remaining after this card
-    remaining_due = max(0, len(due_cards) - 1) if due_cards else 0
-    remaining_new_q = max(0, len(new_senses) - 1) if new_senses else 0
+    showing_due = current_card is not None and due_cards and current_card.id == due_cards[0].id
+    remaining_due = max(0, len(due_cards) - (1 if showing_due else 0))
+    remaining_new_q = max(
+        0, len(new_senses) - (1 if current_card is not None and new_senses else 0)
+    )
     total_remaining = remaining_due + remaining_new_q
 
     resp = templates.TemplateResponse(

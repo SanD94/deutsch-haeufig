@@ -276,8 +276,138 @@ class TestRetention:
 
 
 class TestHeaderCounters:
+    def _neu_count(self, text: str) -> int:
+        """Extract the Neu counter value from rendered HTML."""
+        import re
+        m = re.search(r'Neu.*?<strong[^>]*>(\d+)</strong>', text)
+        assert m is not None, f"Could not find Neu counter in:\n{text}"
+        return int(m.group(1))
+
+    def _fallig_count(self, text: str) -> int:
+        """Extract the Fällig counter value from rendered HTML."""
+        import re
+        m = re.search(r'Fällig.*?<strong[^>]*>(\d+)</strong>', text)
+        assert m is not None, f"Could not find Fällig counter in:\n{text}"
+        return int(m.group(1))
+
+    def _rate_card(self, client, card_id: int, rating: int = 3):
+        resp = client.post(
+            "/learn/rate",
+            data={"card_id": card_id, "rating": rating},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+        return resp
+
     def test_counters_displayed(self, client, sample_words):
         resp = client.get("/learn")
         assert resp.status_code == 200
         assert "Fällig" in resp.text
         assert "Neu" in resp.text
+
+    def test_counters_start_correct(self, client, db_session, sample_words):
+        """Three new words → Neu: 3, Fällig: 0."""
+        resp = client.get("/learn")
+        assert self._neu_count(resp.text) == 3
+        assert self._fallig_count(resp.text) == 0
+
+    def test_counters_decrease_after_rating(self, client, db_session, sample_words):
+        """After rating a new card, new_count decreases by 1."""
+        client.get("/learn")
+        card = db_session.execute(select(ReviewCard).limit(1)).scalar_one_or_none()
+        assert card is not None
+
+        self._rate_card(client, card.id, rating=3)
+
+        resp2 = client.get("/learn")
+        assert self._neu_count(resp2.text) == 2
+        assert self._fallig_count(resp2.text) == 0
+
+    def test_due_count_shows_due_cards(self, client, db_session, sample_words):
+        """Cards due in the past appear in Fällig.
+
+        Exhaust new senses first, then move one card due to the past.
+        """
+        client.get("/learn")
+        for _ in range(3):
+            card = db_session.execute(
+                select(ReviewCard).order_by(ReviewCard.id.desc()).limit(1)
+            ).scalar_one()
+            self._rate_card(client, card.id, rating=3)
+            client.get("/learn")
+
+        assert db_session.execute(select(func.count(ReviewCard.id))).scalar_one() == 3
+
+        # Move card1 due to the past
+        card1 = db_session.execute(
+            select(ReviewCard).order_by(ReviewCard.id).limit(1)
+        ).scalar_one()
+        card1.due = datetime.now(UTC) - timedelta(hours=1)
+        db_session.commit()
+
+        resp = client.get("/learn")
+        assert self._fallig_count(resp.text) == 1
+        assert self._neu_count(resp.text) == 0
+
+    def test_counters_update_after_rating_due_card(self, client, db_session, sample_words):
+        """After rating a due card, due_count decreases by 1.
+
+        Exhaust all new senses first so only a past-due card remains.
+        """
+        # Create and rate all 3 cards so no new senses remain
+        client.get("/learn")
+        for _ in range(3):
+            card = db_session.execute(
+                select(ReviewCard).order_by(ReviewCard.id.desc()).limit(1)
+            ).scalar_one()
+            self._rate_card(client, card.id, rating=3)
+            client.get("/learn")
+
+        assert db_session.execute(select(func.count(ReviewCard.id))).scalar_one() == 3
+
+        # Move card2 due to the past
+        card2 = db_session.execute(
+            select(ReviewCard).order_by(ReviewCard.id).limit(1).offset(1)
+        ).scalar_one()
+        card2.due = datetime.now(UTC) - timedelta(hours=1)
+        db_session.commit()
+
+        resp = client.get("/learn")
+        assert self._fallig_count(resp.text) == 1
+        assert self._neu_count(resp.text) == 0
+
+        # Rate the due card
+        self._rate_card(client, card2.id, rating=3)
+
+        resp2 = client.get("/learn")
+        assert self._fallig_count(resp2.text) == 0
+        assert self._neu_count(resp2.text) == 0
+
+    def test_counters_persist_across_ratings(self, client, db_session, sample_words):
+        """Rate all 3 new cards — Neu goes 3→2→1→0, Fällig stays 0."""
+        client.get("/learn")  # init
+
+        for expected_neu in (2, 1, 0):
+            card = db_session.execute(
+                select(ReviewCard).order_by(ReviewCard.id.desc()).limit(1)
+            ).scalar_one_or_none()
+            assert card is not None
+            self._rate_card(client, card.id, rating=3)
+            resp = client.get("/learn")
+            assert self._neu_count(resp.text) == expected_neu, (
+                f"Expected Neu: {expected_neu}, "
+                f"got Neu: {self._neu_count(resp.text)} "
+                f"after rating card #{card.id}"
+            )
+            assert self._fallig_count(resp.text) == 0
+
+    def test_remaining_text_updates(self, client, db_session, sample_words):
+        """The 'N übrig' text should also decrease after ratings."""
+        resp = client.get("/learn")
+        assert "2 übrig" in resp.text  # 3 new - 1 current = 2 remaining
+
+        card = db_session.execute(select(ReviewCard).limit(1)).scalar_one()
+        self._rate_card(client, card.id, rating=3)
+
+        resp = client.get("/learn")
+        assert "1 übrig" in resp.text  # 2 new - 1 current = 1 remaining

@@ -192,8 +192,8 @@ function learnApp() {
       if (this.revealed && ['1', '2', '3', '4'].includes(e.key)) {
         this.selectedRating = parseInt(e.key);
         const btn = document.querySelector(`button[name="rating"][value="${e.key}"]`);
-        if (btn && btn.form) {
-          btn.form.submit();
+        if (btn) {
+          btn.click();
         }
       }
     },
