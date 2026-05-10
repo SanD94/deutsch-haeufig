@@ -18,7 +18,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, func, select
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
 from deutsch_haufig.db import get_session
 from deutsch_haufig.dialogue import (
@@ -38,9 +38,7 @@ def _use_test_db(tmp_path: Path) -> Iterator[None]:
     db_path = tmp_path / "test.db"
     engine = create_engine(f"sqlite:///{db_path}", future=True)
     Base.metadata.create_all(engine)
-    test_sessionmaker = sessionmaker(
-        bind=engine, autoflush=False, expire_on_commit=False
-    )
+    test_sessionmaker = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
     old_engine = deutsch_haufig.db.engine
     old_sm = deutsch_haufig.db.SessionLocal
@@ -224,9 +222,7 @@ class TestGenerateDialogue:
     def test_generate_caches_and_returns_dialogue(self, client, db_session, sample_sense):
         with patch("deutsch_haufig.routes.word.provider_from_config") as mock_prov:
             mock_prov.return_value = _FakeProvider("A: Test!\nB: OK!")
-            resp = client.post(
-                f"/word/{sample_sense.word_id}/dialogue/{sample_sense.id}"
-            )
+            resp = client.post(f"/word/{sample_sense.word_id}/dialogue/{sample_sense.id}")
         assert resp.status_code == 200
         data = resp.json()
         assert data["has_dialogue"] is True
@@ -248,9 +244,7 @@ class TestGenerateDialogue:
         db_session.commit()
 
         with patch("deutsch_haufig.routes.word.provider_from_config") as mock_prov:
-            resp = client.post(
-                f"/word/{sample_sense.word_id}/dialogue/{sample_sense.id}"
-            )
+            resp = client.post(f"/word/{sample_sense.word_id}/dialogue/{sample_sense.id}")
         assert resp.status_code == 200
         data = resp.json()
         assert "Cached!" in data["html"]
@@ -264,9 +258,7 @@ class TestGenerateDialogue:
 
         with patch("deutsch_haufig.routes.word.provider_from_config") as mock_prov:
             mock_prov.return_value = FailingProvider()
-            resp = client.post(
-                f"/word/{sample_sense.word_id}/dialogue/{sample_sense.id}"
-            )
+            resp = client.post(f"/word/{sample_sense.word_id}/dialogue/{sample_sense.id}")
         assert resp.status_code == 503
         data = resp.json()
         assert data["has_dialogue"] is False

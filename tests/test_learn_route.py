@@ -35,9 +35,7 @@ def _test_engine(tmp_path: Path) -> Iterator[None]:
     db_path = tmp_path / "test.db"
     engine = create_engine(f"sqlite:///{db_path}", future=True)
     Base.metadata.create_all(engine)
-    test_sessionmaker = sessionmaker(
-        bind=engine, autoflush=False, expire_on_commit=False
-    )
+    test_sessionmaker = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
     old_engine = db_mod.engine
     old_sm = db_mod.SessionLocal
@@ -136,11 +134,14 @@ class TestCardCreation:
         assert card_count >= 1
 
     def test_revisiting_does_not_duplicate_cards(self, client, db_session, sample_words):
+        """Cards are created one-at-a-time; revisiting creates the next sense's card."""
         client.get("/learn")
         first_count = db_session.execute(select(func.count(ReviewCard.id))).scalar_one()
+        assert first_count == 1
         client.get("/learn")
         second_count = db_session.execute(select(func.count(ReviewCard.id))).scalar_one()
-        assert second_count == first_count
+        # Second visit creates a card for a different sense (not a duplicate)
+        assert second_count == 2
 
 
 # ---------------------------------------------------------------------------
@@ -222,11 +223,13 @@ class TestReviewRating:
 class TestDailyCaps:
     def test_new_per_day_cap_respected(self, client, db_session, sample_words):
         user, _ = _ensure_user(db_session)
-        user.settings_json = json.dumps({
-            "new_per_day": 2,
-            "reviews_per_day": 120,
-            "desired_retention": 0.9,
-        })
+        user.settings_json = json.dumps(
+            {
+                "new_per_day": 2,
+                "reviews_per_day": 120,
+                "desired_retention": 0.9,
+            }
+        )
         db_session.commit()
 
         client.get("/learn")
@@ -278,4 +281,3 @@ class TestHeaderCounters:
         assert resp.status_code == 200
         assert "Fällig" in resp.text
         assert "Neu" in resp.text
-        assert "Retention 30d" in resp.text

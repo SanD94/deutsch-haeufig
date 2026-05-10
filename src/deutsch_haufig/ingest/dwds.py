@@ -16,7 +16,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -120,7 +120,7 @@ async def fetch_entry(
         return DWDSEntry(
             lemma=lemma,
             pos=pos,
-            fetched_at=datetime.utcnow(),
+            fetched_at=datetime.now(UTC),
             senses=(),
             examples={},
             not_found=True,
@@ -204,12 +204,12 @@ def parse_entry(lemma: str, pos: str, html: str) -> DWDSEntry:
             )
         )
         examples_by_sense[sense_idx] = sense_examples
-        sense_idx +=1
+        sense_idx += 1
 
     return DWDSEntry(
         lemma=lemma,
         pos=pos,
-        fetched_at=datetime.utcnow(),
+        fetched_at=datetime.now(UTC),
         senses=tuple(senses),
         examples={k: tuple(v) for k, v in examples_by_sense.items()},
     )
@@ -277,7 +277,7 @@ async def fetch_entry_for_client(
         return DWDSEntry(
             lemma=lemma,
             pos=pos,
-            fetched_at=datetime.utcnow(),
+            fetched_at=datetime.now(UTC),
             senses=(),
             examples={},
             not_found=True,

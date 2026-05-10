@@ -12,7 +12,30 @@ Legend: 🟢 must-have · 🟡 should-have · 🔵 nice-to-have
 
 ## M2 — German definitions & examples from dwds — Completed
 
-## M3 — Spaced repetition core - Completed
+🟢 `ingest/dwds.py`:
+   - Fetch Wörterbuch entry per lemma+pos.
+   - Extract 1..n `Sense.definition_de`.
+   - Fetch ≥3 corpus examples per sense (`Example.text_de`, `source="dwds-korpus"`).
+🟢 `ingest/pipeline.py enrich --limit N` upserts senses + examples; idempotent.
+🟢 Word detail page: monolingual definition, examples, attribution to dwds.
+🟡 Fallback: if dwds lookup fails, mark `Sense.definition_de = NULL` and surface a "Definition fehlt" badge.
+🟢 Tests: snapshot parser against 10 saved HTML fixtures (covers nouns, verbs, particles).
+
+**Demo:** click any A1 word → German definition + 3 real corpus examples render.
+
+---
+
+## M3 — Spaced repetition core — Completed
+
+🟢 `Scheduler` interface; `FSRSScheduler` implementation using `fsrs` lib.
+🟢 `ReviewCard` auto-created on first encounter of a sense in `/learn`.
+🟢 `/learn` page:
+   - Front: lemma (+article for nouns) + a *gap-cloze* example (the word blanked out).
+   - Reveal → German definition + full example list.
+   - Buttons *Again / Hard / Good / Easy*; keyboard 1/2/3/4 + space to reveal.
+🟢 Daily caps: `new_per_day=15`, `reviews_per_day=120` (user-settable).
+🟢 Header counters: *Due today · New today · Retention 30d*.
+🟢 Tests: scheduler transitions, queue ordering, cap enforcement.
 
 **Demo:** review a 20-card session; quitting and reopening preserves due dates.
 

@@ -7,7 +7,7 @@ and helper methods.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -70,8 +70,8 @@ class Dialogue(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     sense_id: Mapped[int] = mapped_column(ForeignKey("senses.id", ondelete="CASCADE"), index=True)
     text_de: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     generated_by: Mapped[str] = mapped_column(String(64))
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     sense: Mapped[Sense] = relationship(back_populates="dialogues")
 
@@ -81,7 +81,7 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     settings_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     cards: Mapped[list[ReviewCard]] = relationship(
@@ -96,6 +96,8 @@ class ReviewCard(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     sense_id: Mapped[int] = mapped_column(ForeignKey("senses.id", ondelete="CASCADE"), index=True)
 
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+
     stability: Mapped[float | None] = mapped_column(nullable=True)
     difficulty: Mapped[float | None] = mapped_column(nullable=True)
     due: Mapped[datetime | None] = mapped_column(nullable=True, index=True)
@@ -105,6 +107,7 @@ class ReviewCard(Base):
     state: Mapped[str] = mapped_column(String(16), default="new")
 
     user: Mapped[User] = relationship(back_populates="cards")
+    sense: Mapped[Sense] = relationship()
     logs: Mapped[list[ReviewLog]] = relationship(
         back_populates="card", cascade="all, delete-orphan"
     )
@@ -117,7 +120,7 @@ class ReviewLog(Base):
     card_id: Mapped[int] = mapped_column(
         ForeignKey("review_cards.id", ondelete="CASCADE"), index=True
     )
-    ts: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    ts: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     rating: Mapped[int] = mapped_column(Integer)
     elapsed_days: Mapped[float | None] = mapped_column(nullable=True)
     scheduled_days: Mapped[float | None] = mapped_column(nullable=True)

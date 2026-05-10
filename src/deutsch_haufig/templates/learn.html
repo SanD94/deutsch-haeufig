@@ -111,7 +111,6 @@
             <p class="text-xs text-stone-400 text-center mb-3 font-medium">Wie gut wusstest du die Bedeutung?</p>
             <form action="/learn/rate" method="post" class="grid grid-cols-4 gap-2 sm:gap-3">
               <input type="hidden" name="card_id" value="{{ card.id }}">
-              <input type="hidden" name="sense_id" value="{{ sense.id }}">
 
               <button type="submit" name="rating" value="1"
                 @click="selectedRating=1"

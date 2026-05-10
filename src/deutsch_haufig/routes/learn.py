@@ -10,10 +10,10 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, Query, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from deutsch_haufig.db import get_session
 from deutsch_haufig.models import ReviewCard, ReviewLog, Sense, User, Word
@@ -62,11 +62,15 @@ def _ensure_user(session: Session, request: Request | None = None) -> tuple[User
     # Legacy: first user in DB
     user = session.execute(select(User).order_by(User.id).limit(1)).scalar_one_or_none()
     if user is None:
-        user = User(settings_json=json.dumps({
-            "new_per_day": FSRSScheduler.DEFAULT_NEW_PER_DAY,
-            "reviews_per_day": FSRSScheduler.DEFAULT_REVIEWS_PER_DAY,
-            "desired_retention": 0.9,
-        }))
+        user = User(
+            settings_json=json.dumps(
+                {
+                    "new_per_day": FSRSScheduler.DEFAULT_NEW_PER_DAY,
+                    "reviews_per_day": FSRSScheduler.DEFAULT_REVIEWS_PER_DAY,
+                    "desired_retention": 0.9,
+                }
+            )
+        )
         session.add(user)
         session.commit()
         return user, True
@@ -126,7 +130,7 @@ def _count_new_today(session: Session, user_id: int, now: datetime) -> int:
         select(func.count(ReviewCard.id))
         .where(ReviewCard.user_id == user_id)
         .where(ReviewCard.state == "new")
-        .where(ReviewCard.due >= start)  # created today
+        .where(ReviewCard.created_at >= start)
     )
     return session.execute(stmt).scalar_one()
 
@@ -176,6 +180,10 @@ def _get_due_cards(
     """Return review cards due or new (unreviewed), ordered by reps then due."""
     stmt = (
         select(ReviewCard)
+        .options(
+            joinedload(ReviewCard.sense).joinedload(Sense.word),
+            joinedload(ReviewCard.sense).joinedload(Sense.examples),
+        )
         .where(ReviewCard.user_id == user_id)
         .where(ReviewCard.due <= now)
         .order_by(
@@ -184,7 +192,7 @@ def _get_due_cards(
         )
         .limit(limit)
     )
-    return list(session.execute(stmt).scalars().all())
+    return list(session.execute(stmt).unique().scalars().all())
 
 
 def _get_new_senses(
@@ -194,44 +202,36 @@ def _get_new_senses(
     limit: int,
 ) -> list[Sense]:
     """Return senses that the user has NOT yet turned into a review card."""
-    # Subquery: senses the user already has cards for
-    have_cards = (
-        select(ReviewCard.sense_id)
-        .where(ReviewCard.user_id == user_id)
-    )
+    have_cards = select(ReviewCard.sense_id).where(ReviewCard.user_id == user_id)
     stmt = (
         select(Sense)
+        .options(joinedload(Sense.word), joinedload(Sense.examples))
         .join(Word, Word.id == Sense.word_id)
         .where(Sense.id.notin_(have_cards))
         .order_by(Word.frequency.desc(), Word.lemma.asc(), Sense.order.asc())
         .limit(limit)
     )
-    return list(session.execute(stmt).scalars().all())
+    return list(session.execute(stmt).unique().scalars().all())
 
 
-def _create_review_cards_for_senses(
+def _create_review_card(
     session: Session,
     user_id: int,
-    senses: list[Sense],
+    sense: Sense,
     scheduler: FSRSScheduler,
     now: datetime,
-) -> list[tuple[Sense, ReviewCard]]:
-    """Create ReviewCards for new senses.  Returns list of (sense, card)."""
-    results: list[tuple[Sense, ReviewCard]] = []
-    for sense in senses:
-        card = ReviewCard(
-            user_id=user_id,
-            sense_id=sense.id,
-            state="new",
-            due=now,  # due immediately so it shows up
-        )
-        session.add(card)
-        results.append((sense, card))
+) -> ReviewCard:
+    """Create a single ReviewCard for a new sense. Returns the card."""
+    card = ReviewCard(
+        user_id=user_id,
+        sense_id=sense.id,
+        state="new",
+        due=now,
+    )
+    session.add(card)
     session.commit()
-    # Refresh to get IDs
-    for _, card in results:
-        session.refresh(card)
-    return results
+    session.refresh(card)
+    return card
 
 
 # ---------------------------------------------------------------------------
@@ -287,11 +287,8 @@ def learn(
     card_dict = None
 
     if new_senses:
-        sense_card_pairs = _create_review_cards_for_senses(
-            session, user.id, new_senses, scheduler, now
-        )
-        current_sense, current_card = sense_card_pairs[0]
-        # Use the card dict from scheduler for consistency
+        current_sense = new_senses[0]
+        current_card = _create_review_card(session, user.id, current_sense, scheduler, now)
         card_dict = scheduler.new_card()
         current_card.stability = card_dict.get("stability")
         current_card.difficulty = card_dict.get("difficulty")
@@ -300,9 +297,7 @@ def learn(
     # Otherwise pick the first due card
     if due_cards and current_card is None:
         current_card = due_cards[0]
-        current_sense = session.execute(
-            select(Sense).where(Sense.id == current_card.sense_id)
-        ).scalar_one()
+        current_sense = current_card.sense
 
     # Build sense detail
     sense_data = None
@@ -326,20 +321,16 @@ def learn(
             "id": current_card.id,
             "sense_id": current_card.sense_id,
             "state": current_card.state,
-            "card_dict": card_dict if card_dict else {
+            "card_dict": card_dict
+            if card_dict
+            else {
                 "state": 1,
                 "step": 0,
                 "stability": current_card.stability,
                 "difficulty": current_card.difficulty,
-                "due": (
-                    current_card.due.isoformat()
-                    if current_card.due
-                    else None
-                ),
+                "due": (current_card.due.isoformat() if current_card.due else None),
                 "last_review": (
-                    current_card.last_review.isoformat()
-                    if current_card.last_review
-                    else None
+                    current_card.last_review.isoformat() if current_card.last_review else None
                 ),
             },
         }
@@ -361,7 +352,6 @@ def learn(
             "sense": sense_data,
             "card": card_data,
             "remaining": total_remaining,
-            "settings": settings,
             "empty_corpus": False,
         },
     )
@@ -375,7 +365,6 @@ def learn_rate(
     request: Request,
     session: SessionDep,
     card_id: Annotated[int, Form()],
-    sense_id: Annotated[int, Form()],
     rating: Annotated[int, Form()],
 ):
     """Process a rating for the current card and redirect to next card."""
@@ -383,7 +372,7 @@ def learn_rate(
     now = datetime.now(UTC)
     scheduler = _build_scheduler(user)
     card = session.execute(
-        select(ReviewCard).where(ReviewCard.id == card_id)
+        select(ReviewCard).where(ReviewCard.id == card_id, ReviewCard.user_id == user.id)
     ).scalar_one_or_none()
     if card is None:
         return RedirectResponse(url="/learn", status_code=303)

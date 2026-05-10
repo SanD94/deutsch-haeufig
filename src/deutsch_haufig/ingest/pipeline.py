@@ -186,6 +186,64 @@ async def enrich_words(limit: int | None = None) -> tuple[int, int]:
     return enriched, failed
 
 
+def enrich_all_cached() -> tuple[int, int]:
+    """Enrich all words that have cached DWDS HTML but no definitions yet.
+
+    Unlike ``enrich_words``, this reads from the local cache only — no HTTP.
+    """
+    init_db()
+    enriched = failed = 0
+
+    with SessionLocal() as session:
+        words = session.execute(
+            select(Word).where(Word.id > 0).order_by(Word.id)
+        ).scalars().all()
+
+    skip = 0
+    for w in words:
+        with SessionLocal() as sess:
+            senses = sess.execute(
+                select(Sense).where(Sense.word_id == w.id)
+            ).scalars().all()
+        has_def = any(s.definition_de for s in senses)
+        if has_def:
+            skip += 1
+            continue
+
+        from deutsch_haufig.ingest.dwds import _cache_path  # noqa: PLC0415
+
+        cache_path = _cache_path(w.lemma, w.pos)
+        if not cache_path.exists():
+            skip += 1
+            continue
+
+        from deutsch_haufig.ingest.dwds import parse_entry  # noqa: PLC0415
+
+        html = cache_path.read_text(encoding="utf-8")
+        entry = parse_entry(w.lemma, w.pos, html)
+
+        with SessionLocal() as sess:
+            upsert_sense_and_examples(sess, w.id, entry)
+            sess.commit()
+
+        if not entry.not_found:
+            enriched += 1
+        else:
+            failed += 1
+
+        if (enriched + failed) % 100 == 0:
+            logger.info(
+                "cached-enrich: %d enriched, %d failed, %d skipped",
+                enriched, failed, skip,
+            )
+
+    logger.info(
+        "cached-enrich done: %d enriched, %d failed, %d skipped",
+        enriched, failed, skip,
+    )
+    return enriched, failed
+
+
 # --- CLI -------------------------------------------------------------------
 
 
@@ -220,6 +278,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_scrape = sub.add_parser("scrape", help="drive Playwright over vocabeo /browse → JSONL")
     p_scrape.add_argument("--headed", action="store_true", help="show the browser window (debug)")
     sub.add_parser("seed", help="upsert JSONL into SQLite Word rows")
+    sub.add_parser("cached-enrich", help="enrich all words from local DWDS cache only (no HTTP)")
     p_enrich = sub.add_parser("enrich", help="fetch DWDS definitions + examples")
     p_enrich.add_argument(
         "--limit",
@@ -249,6 +308,9 @@ def main(argv: list[str] | None = None) -> None:
         _run_scrape(args.seed_path, headless=headless)
     elif cmd == "seed":
         _run_seed(args.seed_path)
+    elif cmd == "cached-enrich":
+        enriched, failed = enrich_all_cached()
+        print(f"cached-enrich: {enriched} enriched, {failed} failed")
     elif cmd == "enrich":
         limit = getattr(args, "limit", None)
         enriched, failed = asyncio.run(enrich_words(limit=limit))
