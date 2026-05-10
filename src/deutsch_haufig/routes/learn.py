@@ -201,13 +201,20 @@ def _get_new_senses(
     now: datetime,
     limit: int,
 ) -> list[Sense]:
-    """Return senses that the user has NOT yet turned into a review card."""
+    """Return the first (lowest-order) sense per word not yet carded by user.
+
+    A word with N senses gets at most one active card — the most
+    frequent / first definition.  The remaining senses become available
+    once this card graduates to review state.
+    """
     have_cards = select(ReviewCard.sense_id).where(ReviewCard.user_id == user_id)
+    # Subquery: word_ids that have at least one carded sense
+    carded_words = select(Sense.word_id).where(Sense.id.in_(have_cards)).distinct()
     stmt = (
         select(Sense)
         .options(joinedload(Sense.word), joinedload(Sense.examples))
         .join(Word, Word.id == Sense.word_id)
-        .where(Sense.id.notin_(have_cards))
+        .where(Sense.word_id.notin_(carded_words))
         .order_by(Word.frequency.desc(), Word.lemma.asc(), Sense.order.asc())
         .limit(limit)
     )
