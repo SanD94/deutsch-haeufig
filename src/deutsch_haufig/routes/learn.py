@@ -303,6 +303,7 @@ def learn(
                     "empty_corpus": True,
                 },
             )
+            resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
             if is_new:
                 _user_response(resp, user.id)
             return resp
@@ -381,6 +382,9 @@ def learn(
             "empty_corpus": False,
         },
     )
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
     if is_new:
         _user_response(resp, user.id)
     return resp
