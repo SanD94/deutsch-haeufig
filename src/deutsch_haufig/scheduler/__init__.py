@@ -21,9 +21,9 @@ class Rating(int, enum.Enum):
     """User feedback on a review — mirrors fsrs.Rating values."""
 
     AGAIN = 1  # forgot the card
-    HARD = 2   # remembered with serious difficulty
-    GOOD = 3   # remembered after hesitation
-    EASY = 4   # remembered easily
+    HARD = 2  # remembered with serious difficulty
+    GOOD = 3  # remembered after hesitation
+    EASY = 4  # remembered easily
 
 
 class CardState(enum.StrEnum):
@@ -39,7 +39,7 @@ class CardState(enum.StrEnum):
 class ReviewResult:
     """Outcome of rating a card."""
 
-    card: CardDict          # serialised FSRS card (for DB persistence)
+    card: CardDict  # serialised FSRS card (for DB persistence)
     rating: Rating
     scheduled_days: float
     elapsed_days: float
@@ -153,6 +153,12 @@ class FSRSScheduler:
         now: datetime | None = None,
     ) -> ReviewResult:
         fs_card = self._fs_card.from_dict(card)
+        # SQLite strips tzinfo — reapply UTC so fsrs doesn't crash on
+        # (aware - naive) when computing days_since_last_review.
+        if fs_card.last_review is not None and fs_card.last_review.tzinfo is None:
+            fs_card.last_review = fs_card.last_review.replace(tzinfo=UTC)
+        if fs_card.due is not None and fs_card.due.tzinfo is None:
+            fs_card.due = fs_card.due.replace(tzinfo=UTC)
         if now is not None:
             if now.tzinfo is None:
                 now = now.replace(tzinfo=UTC)
@@ -173,9 +179,11 @@ class FSRSScheduler:
             scheduled_days = (due_dt - last_review_dt).total_seconds() / 86400
             prev_last = card.get("last_review")
             if prev_last:
-                elapsed_days = (
-                    last_review_dt - datetime.fromisoformat(prev_last)
-                ).total_seconds() / 86400
+                # Input dates may be naive (from SQLite) — make aware before diff
+                prev_dt = datetime.fromisoformat(prev_last)
+                if prev_dt.tzinfo is None:
+                    prev_dt = prev_dt.replace(tzinfo=UTC)
+                elapsed_days = (last_review_dt - prev_dt).total_seconds() / 86400
             else:
                 elapsed_days = 0.0
         else:
@@ -191,6 +199,8 @@ class FSRSScheduler:
 
     def retrievability(self, card: CardDict, now: datetime | None = None) -> float | None:
         fs_card = self._fs_card.from_dict(card)
+        if fs_card.last_review is not None and fs_card.last_review.tzinfo is None:
+            fs_card.last_review = fs_card.last_review.replace(tzinfo=UTC)
         if now is not None and now.tzinfo is None:
             now = now.replace(tzinfo=UTC)
         return self._scheduler.get_card_retrievability(fs_card, current_datetime=now)

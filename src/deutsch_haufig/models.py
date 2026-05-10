@@ -96,7 +96,9 @@ class ReviewCard(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     sense_id: Mapped[int] = mapped_column(ForeignKey("senses.id", ondelete="CASCADE"), index=True)
 
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime | None] = mapped_column(
+        default=lambda: datetime.now(UTC), nullable=True
+    )
 
     stability: Mapped[float | None] = mapped_column(nullable=True)
     difficulty: Mapped[float | None] = mapped_column(nullable=True)
