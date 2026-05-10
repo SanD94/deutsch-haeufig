@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -26,6 +26,23 @@ SessionDep = Annotated[Session, Depends(get_session)]
 
 COOKIE_USER_ID = "dh_user_id"
 COOKIE_MAX_AGE = 365 * 24 * 3600  # 1 year
+
+
+# ---------------------------------------------------------------------------
+# HTMX-aware redirect
+# ---------------------------------------------------------------------------
+
+
+def _redirect(url: str, request: Request) -> Response:
+    """Return a redirect that works with both HTMX and regular browsers.
+
+    HTMX 2.x intercepts form submissions and doesn't follow HTTP 303
+    redirects with a full page navigation — it does a DOM swap instead.
+    ``HX-Redirect`` tells HTMX to do a full ``window.location`` navigation,
+    while regular browsers still get a 303.
+    """
+    headers = {"HX-Redirect": url} if request.headers.get("HX-Request") else {}
+    return RedirectResponse(url=url, status_code=303, headers=headers)
 
 
 # ---------------------------------------------------------------------------
@@ -405,7 +422,7 @@ def learn_rate(
         select(ReviewCard).where(ReviewCard.id == card_id, ReviewCard.user_id == user.id)
     ).scalar_one_or_none()
     if card is None:
-        return RedirectResponse(url="/learn", status_code=303)
+        return _redirect("/learn", request)
 
     # Build fsrs card dict from stored data (fsrs from_dict needs all keys)
     card_dict = {
@@ -450,7 +467,7 @@ def learn_rate(
     session.add(log)
     session.commit()
 
-    resp = RedirectResponse(url="/learn", status_code=303)
+    resp = _redirect("/learn", request)
     if is_new:
         _user_response(resp, user.id)
     return resp
@@ -459,7 +476,7 @@ def learn_rate(
 @router.post("/learn/finish")
 def learn_finish(request: Request):
     """Finish the session — redirect to /learn which will reset the queue."""
-    return RedirectResponse(url="/learn", status_code=303)
+    return _redirect("/learn", request)
 
 
 @router.post("/learn/bury/{card_id}")
@@ -474,12 +491,12 @@ def learn_bury(
         select(ReviewCard).where(ReviewCard.id == card_id, ReviewCard.user_id == user.id)
     ).scalar_one_or_none()
     if card is None:
-        return RedirectResponse(url="/learn", status_code=303)
+        return _redirect("/learn", request)
     now = datetime.now(UTC)
     tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
     card.due = tomorrow
     session.commit()
-    return RedirectResponse(url="/learn", status_code=303)
+    return _redirect("/learn", request)
 
 
 @router.post("/learn/suspend/{card_id}")
@@ -494,7 +511,7 @@ def learn_suspend(
         select(ReviewCard).where(ReviewCard.id == card_id, ReviewCard.user_id == user.id)
     ).scalar_one_or_none()
     if card is None:
-        return RedirectResponse(url="/learn", status_code=303)
+        return _redirect("/learn", request)
     card.due = datetime.now(UTC) + timedelta(days=365 * 10)  # 10 years
     session.commit()
-    return RedirectResponse(url="/learn", status_code=303)
+    return _redirect("/learn", request)
