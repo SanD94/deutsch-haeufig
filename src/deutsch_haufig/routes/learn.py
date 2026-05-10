@@ -177,17 +177,36 @@ def _get_due_cards(
     now: datetime,
     limit: int,
 ) -> list[ReviewCard]:
-    """Return review cards due or new (unreviewed), ordered by reps then due."""
+    """Return review cards due, ordered by reps then due.
+
+    Only returns at most one card per word — the lowest-order sense that
+    has a card and is due.  Second+ senses of an already-carded word are
+    deferred until the first sense graduates to review state.
+    """
+    # Subquery: for each word, pick the minimum sense.order among carded senses
+    min_order_per_word = (
+        select(Sense.word_id, func.min(Sense.order).label("min_order"))
+        .join(ReviewCard, ReviewCard.sense_id == Sense.id)
+        .where(ReviewCard.user_id == user_id)
+        .group_by(Sense.word_id)
+    ).subquery()
+
     stmt = (
         select(ReviewCard)
         .options(
             joinedload(ReviewCard.sense).joinedload(Sense.word),
             joinedload(ReviewCard.sense).joinedload(Sense.examples),
         )
+        .join(Sense, Sense.id == ReviewCard.sense_id)
+        .join(
+            min_order_per_word,
+            (min_order_per_word.c.word_id == Sense.word_id)
+            & (min_order_per_word.c.min_order == Sense.order),
+        )
         .where(ReviewCard.user_id == user_id)
         .where(ReviewCard.due <= now)
         .order_by(
-            ReviewCard.reps.asc(),  # unreviewed (reps=0) first
+            ReviewCard.reps.asc(),
             ReviewCard.due.asc(),
         )
         .limit(limit)
