@@ -7,16 +7,18 @@ and the review rating pipeline works end-to-end.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, func, select
+from sqlalchemy.orm import Session, sessionmaker
 
-from deutsch_haufig.db import SessionLocal, get_session
+from deutsch_haufig.db import get_session
 from deutsch_haufig.main import create_app
-from deutsch_haufig.models import Example, ReviewCard, ReviewLog, Sense, User, Word
+from deutsch_haufig.models import Base, Example, ReviewCard, ReviewLog, Sense, User, Word
 from deutsch_haufig.routes.learn import _ensure_user
 
 
@@ -25,18 +27,34 @@ from deutsch_haufig.routes.learn import _ensure_user
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture(autouse=True)
-def _reset_db():
-    from deutsch_haufig.models import Base
-    from deutsch_haufig.db import engine
+@pytest.fixture()
+def _test_engine(tmp_path: Path) -> Iterator[None]:
+    """Patch the db module to use a disposable temp SQLite file."""
+    import deutsch_haufig.db as db_mod
 
-    Base.metadata.drop_all(engine)
+    db_path = tmp_path / "test.db"
+    engine = create_engine(f"sqlite:///{db_path}", future=True)
     Base.metadata.create_all(engine)
-    yield
+    test_sessionmaker = sessionmaker(
+        bind=engine, autoflush=False, expire_on_commit=False
+    )
+
+    old_engine = db_mod.engine
+    old_sm = db_mod.SessionLocal
+    db_mod.engine = engine
+    db_mod.SessionLocal = test_sessionmaker
+    try:
+        yield
+    finally:
+        db_mod.engine = old_engine
+        db_mod.SessionLocal = old_sm
+        engine.dispose()
 
 
 @pytest.fixture()
-def db_session():
+def db_session(_test_engine):
+    from deutsch_haufig.db import SessionLocal
+
     session = SessionLocal()
     try:
         yield session
@@ -92,12 +110,10 @@ def sample_words(db_session: Session):
 
 
 class TestUserAutoCreation:
-    def test_first_visit_creates_user(self, client, sample_words):
+    def test_first_visit_creates_user(self, client, db_session, sample_words):
         resp = client.get("/learn")
         assert resp.status_code == 200
-        session = SessionLocal()
-        count = session.execute(select(func.count(User.id))).scalar_one()
-        session.close()
+        count = db_session.execute(select(func.count(User.id))).scalar_one()
         assert count >= 1
 
     def test_user_persists_across_requests(self, client, db_session, sample_words):
@@ -143,7 +159,7 @@ class TestReviewRating:
         card = self._get_card(client, db_session)
         resp = client.post(
             "/learn/rate",
-            params={"card_id": card.id, "sense_id": card.sense_id, "rating": 3},
+            data={"card_id": card.id, "sense_id": card.sense_id, "rating": 3},
             follow_redirects=False,
         )
         assert resp.status_code == 303
@@ -152,7 +168,7 @@ class TestReviewRating:
         card = self._get_card(client, db_session)
         client.post(
             "/learn/rate",
-            params={"card_id": card.id, "sense_id": card.sense_id, "rating": 3},
+            data={"card_id": card.id, "sense_id": card.sense_id, "rating": 3},
             follow_redirects=False,
         )
         log_count = db_session.execute(select(func.count(ReviewLog.id))).scalar_one()
@@ -162,7 +178,7 @@ class TestReviewRating:
         card = self._get_card(client, db_session)
         client.post(
             "/learn/rate",
-            params={"card_id": card.id, "sense_id": card.sense_id, "rating": 3},
+            data={"card_id": card.id, "sense_id": card.sense_id, "rating": 3},
             follow_redirects=False,
         )
         db_session.refresh(card)
@@ -173,7 +189,7 @@ class TestReviewRating:
         card = self._get_card(client, db_session)
         client.post(
             "/learn/rate",
-            params={"card_id": card.id, "sense_id": card.sense_id, "rating": 1},
+            data={"card_id": card.id, "sense_id": card.sense_id, "rating": 1},
             follow_redirects=False,
         )
         db_session.refresh(card)
@@ -182,7 +198,17 @@ class TestReviewRating:
     def test_rate_missing_card_redirects(self, client, sample_words):
         resp = client.post(
             "/learn/rate",
-            params={"card_id": 99999, "sense_id": 1, "rating": 3},
+            data={"card_id": 99999, "sense_id": 1, "rating": 3},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+
+    def test_rate_via_form_body_succeeds(self, client, db_session, sample_words):
+        """Browser-style form-encoded POST must not 422."""
+        card = self._get_card(client, db_session)
+        resp = client.post(
+            "/learn/rate",
+            data={"card_id": card.id, "sense_id": card.sense_id, "rating": 3},
             follow_redirects=False,
         )
         assert resp.status_code == 303

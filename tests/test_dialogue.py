@@ -11,14 +11,16 @@ Covers:
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import create_engine, func, select
+from sqlalchemy.orm import Session, sessionmaker
 
-from deutsch_haufig.db import SessionLocal, get_session
+from deutsch_haufig.db import get_session
 from deutsch_haufig.dialogue import (
     DialogueGenerationError,
     NoOpProvider,
@@ -29,16 +31,33 @@ from deutsch_haufig.models import Base, Dialogue, Sense, Word
 
 
 @pytest.fixture(autouse=True)
-def _reset_db():
-    from deutsch_haufig.db import engine
+def _use_test_db(tmp_path: Path) -> Iterator[None]:
+    """Patch the db module to use a disposable temp SQLite."""
+    import deutsch_haufig.db
 
-    Base.metadata.drop_all(engine)
+    db_path = tmp_path / "test.db"
+    engine = create_engine(f"sqlite:///{db_path}", future=True)
     Base.metadata.create_all(engine)
-    yield
+    test_sessionmaker = sessionmaker(
+        bind=engine, autoflush=False, expire_on_commit=False
+    )
+
+    old_engine = deutsch_haufig.db.engine
+    old_sm = deutsch_haufig.db.SessionLocal
+    deutsch_haufig.db.engine = engine
+    deutsch_haufig.db.SessionLocal = test_sessionmaker
+    try:
+        yield
+    finally:
+        deutsch_haufig.db.engine = old_engine
+        deutsch_haufig.db.SessionLocal = old_sm
+        engine.dispose()
 
 
 @pytest.fixture()
 def db_session():
+    from deutsch_haufig.db import SessionLocal
+
     session = SessionLocal()
     try:
         yield session

@@ -10,7 +10,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -374,9 +374,9 @@ def learn(
 def learn_rate(
     request: Request,
     session: SessionDep,
-    card_id: Annotated[int, Query()],
-    sense_id: Annotated[int, Query()],
-    rating: Annotated[int, Query()],
+    card_id: Annotated[int, Form()],
+    sense_id: Annotated[int, Form()],
+    rating: Annotated[int, Form()],
 ):
     """Process a rating for the current card and redirect to next card."""
     user, is_new = _ensure_user(session, request)
