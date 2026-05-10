@@ -292,6 +292,7 @@ def learn(
         card_dict = scheduler.new_card()
         current_card.stability = card_dict.get("stability")
         current_card.difficulty = card_dict.get("difficulty")
+        session.commit()
 
     # Otherwise pick the first due card
     if due_cards and current_card is None:
