@@ -323,6 +323,26 @@ class TestHeaderCounters:
         assert self._neu_count(resp2.text) == 2
         assert self._fallig_count(resp2.text) == 0
 
+    def test_htmx_rating_redirects_to_fresh_counter_page(self, client, db_session, sample_words):
+        """HTMX rating submissions must trigger a full reload so counters refresh."""
+        client.get("/learn")
+        card = db_session.execute(select(ReviewCard).limit(1)).scalar_one_or_none()
+        assert card is not None
+
+        resp = client.post(
+            "/learn/rate",
+            data={"card_id": card.id, "rating": 3},
+            headers={"HX-Request": "true"},
+            follow_redirects=False,
+        )
+
+        assert resp.status_code == 204
+        assert resp.headers["HX-Redirect"] == "/learn"
+
+        resp2 = client.get(resp.headers["HX-Redirect"])
+        assert self._neu_count(resp2.text) == 2
+        assert self._fallig_count(resp2.text) == 0
+
     def test_due_count_shows_due_cards(self, client, db_session, sample_words):
         """Cards due in the past appear in Fällig.
 

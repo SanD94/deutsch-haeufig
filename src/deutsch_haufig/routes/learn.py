@@ -36,13 +36,14 @@ COOKIE_MAX_AGE = 365 * 24 * 3600  # 1 year
 def _redirect(url: str, request: Request) -> Response:
     """Return a redirect that works with both HTMX and regular browsers.
 
-    HTMX 2.x intercepts form submissions and doesn't follow HTTP 303
-    redirects with a full page navigation — it does a DOM swap instead.
-    ``HX-Redirect`` tells HTMX to do a full ``window.location`` navigation,
-    while regular browsers still get a 303.
+    HTMX does not process response headers on 3xx responses.  For HTMX
+    requests, return a successful empty response with ``HX-Redirect`` so it
+    performs a full ``window.location`` navigation.  Regular browsers still
+    get a normal 303 redirect.
     """
-    headers = {"HX-Redirect": url} if request.headers.get("HX-Request") else {}
-    return RedirectResponse(url=url, status_code=303, headers=headers)
+    if request.headers.get("HX-Request"):
+        return Response(status_code=204, headers={"HX-Redirect": url})
+    return RedirectResponse(url=url, status_code=303)
 
 
 # ---------------------------------------------------------------------------
