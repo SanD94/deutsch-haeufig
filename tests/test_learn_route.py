@@ -305,6 +305,13 @@ class TestHeaderCounters:
         assert "Fällig" in resp.text
         assert "Neu" in resp.text
 
+    def test_rating_form_uses_htmx(self, client, sample_words):
+        """The visible rating form must send HTMX requests so HX-Redirect is used."""
+        resp = client.get("/learn")
+        assert resp.status_code == 200
+        assert 'action="/learn/rate"' in resp.text
+        assert 'hx-post="/learn/rate"' in resp.text
+
     def test_counters_start_correct(self, client, db_session, sample_words):
         """Three new words → Neu: 3, Fällig: 0."""
         resp = client.get("/learn")
