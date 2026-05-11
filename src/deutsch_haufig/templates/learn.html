@@ -9,11 +9,11 @@
       <div class="flex gap-4">
         <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-stone-100 text-stone-600 font-medium">
           <span class="w-2 h-2 rounded-full bg-brand-500"></span>
-          Fällig: <strong class="text-stone-900">{{ due_count }}</strong>
+          Fällig: <strong class="text-stone-900" data-testid="due-count">{{ due_count }}</strong>
         </span>
         <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-stone-100 text-stone-600 font-medium">
           <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-          Neu: <strong class="text-stone-900">{{ new_count }}</strong>
+          Neu: <strong class="text-stone-900" data-testid="new-count">{{ new_count }}</strong>
         </span>
       </div>
       <div class="flex items-center gap-3">

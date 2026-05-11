@@ -143,11 +143,11 @@ def _count_reviews_today(session: Session, user_id: int, now: datetime) -> int:
 
 
 def _count_new_today(session: Session, user_id: int, now: datetime) -> int:
+    """Count cards introduced today, even after they leave the new state."""
     start = _today_start(now)
     stmt = (
         select(func.count(ReviewCard.id))
         .where(ReviewCard.user_id == user_id)
-        .where(ReviewCard.state == "new")
         .where(ReviewCard.created_at >= start)
     )
     return session.execute(stmt).scalar_one()

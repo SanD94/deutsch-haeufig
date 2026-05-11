@@ -7,6 +7,9 @@ and the review rating pipeline works end-to-end.
 from __future__ import annotations
 
 import json
+import socket
+import threading
+import time
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -20,6 +23,33 @@ from deutsch_haufig.db import get_session
 from deutsch_haufig.main import create_app
 from deutsch_haufig.models import Base, Example, ReviewCard, ReviewLog, Sense, User, Word
 from deutsch_haufig.routes.learn import _ensure_user
+
+
+def _seed_sample_words(session: Session, total: int = 3) -> list[Word]:
+    words = []
+    seed_words = [
+        ("Haus", "die", "noun"),
+        ("geben", None, "verb"),
+        ("schon", None, "adj"),
+    ]
+    seed_words.extend((f"Wort{i}", None, "noun") for i in range(4, total + 1))
+    for lemma, article, pos in seed_words[:total]:
+        w = Word(lemma=lemma, article=article, pos=pos, level="A1", frequency=5)
+        session.add(w)
+        session.flush()
+        sense = Sense(word_id=w.id, definition_de="Test definition for " + lemma)
+        session.add(sense)
+        session.flush()
+        session.add(
+            Example(
+                sense_id=sense.id,
+                text_de="Das ist ein Beispiel fur " + lemma + ".",
+                source="test",
+            )
+        )
+        words.append(w)
+    session.commit()
+    return words
 
 
 # ---------------------------------------------------------------------------
@@ -78,28 +108,7 @@ def client(app):
 
 @pytest.fixture()
 def sample_words(db_session: Session):
-    words = []
-    for lemma, article, pos in [
-        ("Haus", "die", "noun"),
-        ("geben", None, "verb"),
-        ("schon", None, "adj"),
-    ]:
-        w = Word(lemma=lemma, article=article, pos=pos, level="A1", frequency=5)
-        db_session.add(w)
-        db_session.flush()
-        sense = Sense(word_id=w.id, definition_de="Test definition for " + lemma)
-        db_session.add(sense)
-        db_session.flush()
-        db_session.add(
-            Example(
-                sense_id=sense.id,
-                text_de="Das ist ein Beispiel fur " + lemma + ".",
-                source="test",
-            )
-        )
-        words.append(w)
-    db_session.commit()
-    return words
+    return _seed_sample_words(db_session)
 
 
 # ---------------------------------------------------------------------------
@@ -330,6 +339,21 @@ class TestHeaderCounters:
         assert self._neu_count(resp2.text) == 2
         assert self._fallig_count(resp2.text) == 0
 
+    def test_new_counter_decreases_when_corpus_exceeds_daily_cap(self, client, db_session):
+        """After rating one of many new cards, Neu should go 15→14, not refill to 15."""
+        _seed_sample_words(db_session, total=20)
+
+        resp = client.get("/learn")
+        assert self._neu_count(resp.text) == 15
+
+        card = db_session.execute(select(ReviewCard).limit(1)).scalar_one_or_none()
+        assert card is not None
+        self._rate_card(client, card.id, rating=3)
+
+        resp2 = client.get("/learn")
+        assert self._neu_count(resp2.text) == 14
+        assert self._fallig_count(resp2.text) == 0
+
     def test_htmx_rating_redirects_to_fresh_counter_page(self, client, db_session, sample_words):
         """HTMX rating submissions must trigger a full reload so counters refresh."""
         client.get("/learn")
@@ -438,3 +462,80 @@ class TestHeaderCounters:
 
         resp = client.get("/learn")
         assert "1 übrig" in resp.text  # 2 new - 1 current = 1 remaining
+
+
+# ---------------------------------------------------------------------------
+# Browser regression
+# ---------------------------------------------------------------------------
+
+
+def test_browser_rating_click_updates_visible_counters(tmp_path: Path) -> None:
+    """A real browser click should update the rendered Fällig/Neu DOM counters."""
+    try:
+        import uvicorn
+        from playwright.sync_api import Error, expect, sync_playwright
+    except ImportError as exc:
+        pytest.skip(f"browser dependencies are not installed: {exc}")
+
+    db_path = tmp_path / "browser.db"
+    engine = create_engine(
+        f"sqlite:///{db_path}",
+        future=True,
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    test_sessionmaker = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    with test_sessionmaker() as session:
+        _seed_sample_words(session, total=20)
+
+    app = create_app()
+
+    def _override():
+        session = test_sessionmaker()
+        try:
+            yield session
+        finally:
+            session.close()
+
+    app.dependency_overrides[get_session] = _override
+
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    host, port = sock.getsockname()
+    sock.close()
+
+    server = uvicorn.Server(
+        uvicorn.Config(app, host=host, port=port, log_level="warning")
+    )
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        for _ in range(100):
+            if server.started:
+                break
+            time.sleep(0.05)
+        assert server.started
+
+        with sync_playwright() as playwright:
+            try:
+                browser = playwright.chromium.launch(headless=True)
+            except Error as exc:
+                pytest.skip(f"playwright chromium is not installed: {exc}")
+            try:
+                page = browser.new_page()
+                page.goto(f"http://{host}:{port}/learn", wait_until="domcontentloaded")
+
+                expect(page.locator('[data-testid="due-count"]')).to_have_text("0")
+                expect(page.locator('[data-testid="new-count"]')).to_have_text("15")
+
+                page.keyboard.press("Space")
+                page.get_by_role("button", name="Good 3").click()
+
+                expect(page.locator('[data-testid="due-count"]')).to_have_text("0")
+                expect(page.locator('[data-testid="new-count"]')).to_have_text("14")
+            finally:
+                browser.close()
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)
+        engine.dispose()
