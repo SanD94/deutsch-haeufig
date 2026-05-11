@@ -56,11 +56,13 @@ def parse_collocations(html: str) -> list[CollocationEntry]:
                 category = cls[7:]
                 break
 
-        results.append(CollocationEntry(
-            collocate=collocate,
-            category=category,
-            frequency=freq,
-        ))
+        results.append(
+            CollocationEntry(
+                collocate=collocate,
+                category=category,
+                frequency=freq,
+            )
+        )
 
     return results
 

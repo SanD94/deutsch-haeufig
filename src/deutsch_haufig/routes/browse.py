@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from deutsch_haufig.db import get_session
 from deutsch_haufig.ingest.vocabeo import KNOWN_POS_TAGS
 from deutsch_haufig.models import Word
-from deutsch_haufig.templating import templates
+from deutsch_haufig.templating import template_response
 
 router = APIRouter()
 
@@ -81,7 +81,7 @@ def browse(
         stmt = stmt.offset(offset).limit(limit)
     words = session.execute(stmt).scalars().all()
 
-    return templates.TemplateResponse(
+    return template_response(
         request,
         "browse.html",
         {

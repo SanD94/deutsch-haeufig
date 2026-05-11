@@ -5,37 +5,37 @@
         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
     </div>
     <h1 class="text-4xl sm:text-5xl font-extrabold text-stone-900 tracking-tight leading-tight">
-        Deutsch&shy;<span class="text-brand-600">häufig</span>
+        {{ _t("landing.title") }}
     </h1>
     <p class="mt-4 text-lg text-stone-500 leading-relaxed max-w-lg mx-auto">
-        Die häufigsten deutschen Wörter mit einsprachigen Definitionen und smarter Wiederholung lernen.
+        {{ _t("landing.subtitle") }}
     </p>
     <div class="mt-10 flex flex-col sm:flex-row gap-3 justify-center">
         <a href="/browse" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-600 text-white font-semibold hover:bg-brand-700 transition-colors shadow-sm shadow-brand-200">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-            Wörter durchstöbern
+            {{ _t("landing.browse") }}
         </a>
         <a href="/learn" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 transition-colors shadow-sm shadow-emerald-200">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            Lernen beginnen
+            {{ _t("landing.learn") }}
         </a>
     </div>
     <div class="mt-12 flex items-center justify-center gap-6 text-xs text-stone-400">
         <span class="flex items-center gap-1.5">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-            FSRS Spaced Repetition
+            {{ _t("landing.fsrs") }}
         </span>
         <span class="flex items-center gap-1.5">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m0 4h6m-6 4h6m-6 4h6M5 3v18"/></svg>
-            DWDS Definitionen
+            {{ _t("landing.dwds") }}
         </span>
         <span class="flex items-center gap-1.5">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
-            TTS Audio
+            {{ _t("landing.tts") }}
         </span>
     </div>
     <p class="mt-10 text-xs text-stone-300">
-        Daten von <a href="https://www.dwds.de" class="text-stone-400 hover:text-stone-600 underline underline-offset-2" target="_blank" rel="noopener">DWDS</a>
+        {{ _t("landing.data_from") }}
     </p>
 </div>
 {% endblock %}

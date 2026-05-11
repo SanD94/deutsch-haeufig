@@ -9,19 +9,19 @@
       <div class="flex gap-4">
         <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-stone-100 text-stone-600 font-medium">
           <span class="w-2 h-2 rounded-full bg-brand-500"></span>
-          Fällig: <strong class="text-stone-900" data-testid="due-count">{{ due_count }}</strong>
+          {{ _t("learn.due") }}: <strong class="text-stone-900" data-testid="due-count">{{ due_count }}</strong>
         </span>
         <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-stone-100 text-stone-600 font-medium">
           <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-          Neu: <strong class="text-stone-900" data-testid="new-count">{{ new_count }}</strong>
+          {{ _t("learn.new") }}: <strong class="text-stone-900" data-testid="new-count">{{ new_count }}</strong>
         </span>
       </div>
       <div class="flex items-center gap-3">
         {% if retention is not none %}
-          <span class="text-xs text-stone-400">Retention <strong class="text-stone-600">{{ (retention * 100) | round(0) }}%</strong></span>
+          <span class="text-xs text-stone-400">{{ _t("learn.retention") }} <strong class="text-stone-600">{{ (retention * 100) | round(0) }}%</strong></span>
         {% endif %}
         {% if remaining is defined and remaining is not none %}
-          <span class="text-xs text-stone-400">{{ remaining }} übrig</span>
+          <span class="text-xs text-stone-400">{{ remaining }} {{ _t("learn.remaining") }}</span>
         {% endif %}
       </div>
     </div>
@@ -33,9 +33,9 @@
       <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-stone-100 text-stone-400 mb-4">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
       </div>
-      <h2 class="text-xl font-bold text-stone-800 mb-1">Noch keine Wörter</h2>
-      <p class="text-stone-400 text-sm mb-6">Führe <code class="bg-stone-100 px-1.5 py-0.5 rounded text-xs">uv run ingest</code> aus, um Wörter zu laden.</p>
-      <a href="/browse" class="text-brand-600 hover:text-brand-700 text-sm font-medium">← Wörter durchstöbern</a>
+      <h2 class="text-xl font-bold text-stone-800 mb-1">{{ _t("learn.empty_title") }}</h2>
+      <p class="text-stone-400 text-sm mb-6">{{ _t("learn.empty_hint") }}</p>
+      <a href="/browse" class="text-brand-600 hover:text-brand-700 text-sm font-medium">← {{ _t("nav.browse") }}</a>
     </div>
   {% elif sense is none %}
     <!-- All done -->
@@ -43,9 +43,9 @@
       <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-500 mb-4">
         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       </div>
-      <h2 class="text-xl font-bold text-stone-800 mb-1">Alles erledigt!</h2>
-      <p class="text-stone-400 text-sm mb-6">Keine Karten fällig. Komm später wieder.</p>
-      <a href="/browse" class="text-brand-600 hover:text-brand-700 text-sm font-medium">← Wörter durchstöbern</a>
+      <h2 class="text-xl font-bold text-stone-800 mb-1">{{ _t("learn.all_done_title") }}</h2>
+      <p class="text-stone-400 text-sm mb-6">{{ _t("learn.all_done_hint") }}</p>
+      <a href="/browse" class="text-brand-600 hover:text-brand-700 text-sm font-medium">← {{ _t("nav.browse") }}</a>
     </div>
   {% else %}
     <!-- Card -->
@@ -64,7 +64,7 @@
 
           {% if sense.examples %}
             <div class="bg-stone-50 rounded-xl p-5 mb-4 text-left">
-              <p class="text-stone-400 text-xs uppercase tracking-wider mb-2 font-medium">Lückentext</p>
+              <p class="text-stone-400 text-xs uppercase tracking-wider mb-2 font-medium">{{ _t("learn.cloze_label") }}</p>
               <p class="text-lg text-stone-700 leading-relaxed" x-html="clozeText()"></p>
               {% if sense.examples[0].translation_en %}
                 <p class="text-stone-400 text-sm mt-2 italic">{{ sense.examples[0].translation_en }}</p>
@@ -74,7 +74,7 @@
 
           <p class="text-stone-400 text-xs mt-6">
             <kbd class="px-1.5 py-0.5 bg-stone-100 rounded text-[10px] font-mono border border-stone-200">Leertaste</kbd>
-            zum Aufdecken
+            {{ _t("learn.reveal_hint") }}
           </p>
         </div>
 
@@ -82,14 +82,14 @@
         <div x-show="revealed" x-cloak class="p-8 sm:p-10">
           {% if sense.definition_de %}
             <div class="mb-6">
-              <p class="text-xs text-stone-400 uppercase tracking-wider mb-1.5 font-semibold">Bedeutung</p>
+              <p class="text-xs text-stone-400 uppercase tracking-wider mb-1.5 font-semibold">{{ _t("learn.meaning") }}</p>
               <p class="text-lg text-stone-800 leading-relaxed">{{ sense.definition_de }}</p>
             </div>
           {% endif %}
 
           {% if sense.examples %}
             <div class="mb-6">
-              <p class="text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">Beispiele</p>
+              <p class="text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">{{ _t("learn.examples") }}</p>
               <div class="space-y-2">
                 {% for ex in sense.examples %}
                   <div class="bg-stone-50 rounded-xl px-4 py-3 flex items-start gap-2">
@@ -97,7 +97,7 @@
                        x-html="highlightLemma('{{ ex.text_de | e }}')"></p>
                     <button onclick="speak(this.dataset.text)" data-text="{{ ex.text_de | e }}"
                             class="flex-shrink-0 p-1.5 rounded-lg text-stone-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
-                            title="Aussprache">
+                            title="{{ _t('word.pronunciation') }}">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
                     </button>
                   </div>
@@ -108,35 +108,35 @@
 
           <!-- Rating buttons -->
           <div class="border-t border-stone-100 pt-6">
-            <p class="text-xs text-stone-400 text-center mb-3 font-medium">Wie gut wusstest du die Bedeutung?</p>
+            <p class="text-xs text-stone-400 text-center mb-3 font-medium">{{ _t("learn.rate_question") }}</p>
             <form action="/learn/rate" method="post" hx-post="/learn/rate" class="grid grid-cols-4 gap-2 sm:gap-3">
               <input type="hidden" name="card_id" value="{{ card.id }}">
 
               <button type="submit" name="rating" value="1"
                 @click="selectedRating=1"
                 class="py-3 px-2 rounded-xl font-semibold text-sm transition-all hover:scale-[1.03] active:scale-[0.97] bg-red-50 text-red-600 hover:bg-red-100 border border-red-200">
-                Again
+                {{ _t("learn.again") }}
                 <span class="block text-[10px] text-red-400 font-normal mt-0.5">1</span>
               </button>
 
               <button type="submit" name="rating" value="2"
                 @click="selectedRating=2"
                 class="py-3 px-2 rounded-xl font-semibold text-sm transition-all hover:scale-[1.03] active:scale-[0.97] bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200">
-                Hard
+                {{ _t("learn.hard") }}
                 <span class="block text-[10px] text-orange-400 font-normal mt-0.5">2</span>
               </button>
 
               <button type="submit" name="rating" value="3"
                 @click="selectedRating=3"
                 class="py-3 px-2 rounded-xl font-semibold text-sm transition-all hover:scale-[1.03] active:scale-[0.97] bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200">
-                Good
+                {{ _t("learn.good") }}
                 <span class="block text-[10px] text-emerald-400 font-normal mt-0.5">3</span>
               </button>
 
               <button type="submit" name="rating" value="4"
                 @click="selectedRating=4"
                 class="py-3 px-2 rounded-xl font-semibold text-sm transition-all hover:scale-[1.03] active:scale-[0.97] bg-sky-50 text-sky-600 hover:bg-sky-100 border border-sky-200">
-                Easy
+                {{ _t("learn.easy") }}
                 <span class="block text-[10px] text-sky-400 font-normal mt-0.5">4</span>
               </button>
             </form>
@@ -146,18 +146,18 @@
 
       <!-- Footer -->
       <div class="mt-5 flex items-center justify-center gap-4 text-xs">
-        <a href="/browse" class="text-stone-400 hover:text-stone-600 transition-colors font-medium">← Browse</a>
+        <a href="/browse" class="text-stone-400 hover:text-stone-600 transition-colors font-medium">{{ _t("learn.back_browse") }}</a>
         <span class="text-stone-200">·</span>
         <form action="/learn/bury/{{ card.id }}" method="post" class="inline">
-          <button type="submit" class="text-stone-400 hover:text-amber-600 transition-colors font-medium">Bis morgen</button>
+          <button type="submit" class="text-stone-400 hover:text-amber-600 transition-colors font-medium">{{ _t("learn.bury") }}</button>
         </form>
         <span class="text-stone-200">·</span>
         <form action="/learn/suspend/{{ card.id }}" method="post" class="inline">
-          <button type="submit" class="text-stone-400 hover:text-red-500 transition-colors font-medium">Aussetzen</button>
+          <button type="submit" class="text-stone-400 hover:text-red-500 transition-colors font-medium">{{ _t("learn.suspend") }}</button>
         </form>
         <span class="text-stone-200">·</span>
         <form action="/learn/finish" method="post" class="inline">
-          <button type="submit" class="text-stone-400 hover:text-stone-600 transition-colors font-medium">Beenden</button>
+          <button type="submit" class="text-stone-400 hover:text-stone-600 transition-colors font-medium">{{ _t("learn.finish") }}</button>
         </form>
       </div>
     </div>

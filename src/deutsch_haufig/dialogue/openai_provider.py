@@ -38,7 +38,7 @@ class OpenAIProvider:
     async def generate(self, lemma: str, definition_de: str) -> str:
         user_prompt = (
             f"Schreibe einen 6-zeiligen Alltagsdialog auf Deutsch (Niveau A2), "
-            f"in dem das Wort \"{lemma}\" (Bedeutung: {definition_de}) "
+            f'in dem das Wort "{lemma}" (Bedeutung: {definition_de}) '
             f"natürlich vorkommt."
         )
 
@@ -67,9 +67,7 @@ class OpenAIProvider:
                 detail = body.get("error", {}).get("message", resp.text[:200])
             except (json.JSONDecodeError, TypeError):
                 detail = resp.text[:200]
-            raise DialogueGenerationError(
-                f"OpenAI API error (HTTP {resp.status_code}): {detail}"
-            )
+            raise DialogueGenerationError(f"OpenAI API error (HTTP {resp.status_code}): {detail}")
 
         body = resp.json()
         choices = body.get("choices", [])

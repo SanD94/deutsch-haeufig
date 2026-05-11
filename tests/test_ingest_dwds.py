@@ -34,6 +34,7 @@ def _read(name: str) -> str:
 
 # Noun tests
 
+
 def test_parse_noun_haus_basic() -> None:
     e = parse_entry("Haus", "noun", _read("noun_haus.html"))
     assert e.lemma == "Haus"
@@ -96,6 +97,7 @@ def test_parse_noun_stadt_examples() -> None:
 
 # Verb tests
 
+
 def test_parse_verb_geben() -> None:
     e = parse_entry("geben", "verb", _read("verb_geben.html"))
     assert e.lemma == "geben"
@@ -154,6 +156,7 @@ def test_parse_verb_werden_examples() -> None:
 
 # Particle tests
 
+
 def test_parse_particle_ab() -> None:
     e = parse_entry("ab", "particle", _read("particle_ab.html"))
     assert e.lemma == "ab"
@@ -183,6 +186,7 @@ def test_parse_particle_doch_examples() -> None:
 
 
 # Edge cases
+
 
 def test_parse_empty_html_returns_empty() -> None:
     e = parse_entry("Test", "noun", "<html><body></body></html>")

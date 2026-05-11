@@ -21,7 +21,7 @@ from deutsch_haufig.config import settings
 from deutsch_haufig.db import get_session
 from deutsch_haufig.models import User
 from deutsch_haufig.scheduler import FSRSScheduler
-from deutsch_haufig.templating import templates
+from deutsch_haufig.templating import template_response
 
 router = APIRouter()
 
@@ -34,7 +34,7 @@ def _get_serializer() -> URLSafeTimedSerializer:
 
 @router.get("/auth/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse(
+    return template_response(
         request,
         "auth_login.html",
         {"title": "Login", "smtp_configured": bool(settings.smtp_host)},
@@ -55,11 +55,13 @@ async def send_magic_link(
     if user is None:
         user = User(
             email=email,
-            settings_json=json.dumps({
-                "new_per_day": FSRSScheduler.DEFAULT_NEW_PER_DAY,
-                "reviews_per_day": FSRSScheduler.DEFAULT_REVIEWS_PER_DAY,
-                "desired_retention": 0.9,
-            }),
+            settings_json=json.dumps(
+                {
+                    "new_per_day": FSRSScheduler.DEFAULT_NEW_PER_DAY,
+                    "reviews_per_day": FSRSScheduler.DEFAULT_REVIEWS_PER_DAY,
+                    "desired_retention": 0.9,
+                }
+            ),
         )
         session.add(user)
         session.commit()
@@ -69,7 +71,7 @@ async def send_magic_link(
     else:
         print(f"[auth] Magic link for {email}: {link}")
 
-    return templates.TemplateResponse(
+    return template_response(
         request,
         "auth_sent.html",
         {"title": "Link gesendet", "email": email},
@@ -87,7 +89,7 @@ def verify_magic_link(
     try:
         email = s.loads(token, max_age=max_age)
     except Exception:
-        return templates.TemplateResponse(
+        return template_response(
             request,
             "auth_error.html",
             {"title": "Fehler", "error": "Link ungültig oder abgelaufen."},
@@ -96,7 +98,7 @@ def verify_magic_link(
 
     user = session.execute(select(User).where(User.email == email)).scalar_one_or_none()
     if user is None:
-        return templates.TemplateResponse(
+        return template_response(
             request,
             "auth_error.html",
             {"title": "Fehler", "error": "Benutzer nicht gefunden."},
@@ -123,8 +125,7 @@ def logout():
 
 async def _send_email(to: str, link: str) -> None:
     msg = MIMEText(
-        f"Hier ist dein Login-Link für deutsch-häufig:\n\n{link}\n\n"
-        f"Der Link ist 1 Stunde gültig.\n"
+        f"Hier ist dein Login-Link für deutsch-häufig:\n\n{link}\n\nDer Link ist 1 Stunde gültig.\n"
     )
     msg["Subject"] = "Dein Login-Link für deutsch-häufig"
     msg["From"] = settings.from_email

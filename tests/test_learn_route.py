@@ -288,14 +288,16 @@ class TestHeaderCounters:
     def _neu_count(self, text: str) -> int:
         """Extract the Neu counter value from rendered HTML."""
         import re
-        m = re.search(r'Neu.*?<strong[^>]*>(\d+)</strong>', text)
+
+        m = re.search(r"Neu.*?<strong[^>]*>(\d+)</strong>", text)
         assert m is not None, f"Could not find Neu counter in:\n{text}"
         return int(m.group(1))
 
     def _fallig_count(self, text: str) -> int:
         """Extract the Fällig counter value from rendered HTML."""
         import re
-        m = re.search(r'Fällig.*?<strong[^>]*>(\d+)</strong>', text)
+
+        m = re.search(r"Fällig.*?<strong[^>]*>(\d+)</strong>", text)
         assert m is not None, f"Could not find Fällig counter in:\n{text}"
         return int(m.group(1))
 
@@ -390,9 +392,7 @@ class TestHeaderCounters:
         assert db_session.execute(select(func.count(ReviewCard.id))).scalar_one() == 3
 
         # Move card1 due to the past
-        card1 = db_session.execute(
-            select(ReviewCard).order_by(ReviewCard.id).limit(1)
-        ).scalar_one()
+        card1 = db_session.execute(select(ReviewCard).order_by(ReviewCard.id).limit(1)).scalar_one()
         card1.due = datetime.now(UTC) - timedelta(hours=1)
         db_session.commit()
 
@@ -504,9 +504,7 @@ def test_browser_rating_click_updates_visible_counters(tmp_path: Path) -> None:
     host, port = sock.getsockname()
     sock.close()
 
-    server = uvicorn.Server(
-        uvicorn.Config(app, host=host, port=port, log_level="warning")
-    )
+    server = uvicorn.Server(uvicorn.Config(app, host=host, port=port, log_level="warning"))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
     try:

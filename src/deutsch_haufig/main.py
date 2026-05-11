@@ -17,10 +17,11 @@ from fastapi.responses import HTMLResponse
 from deutsch_haufig.db import init_db
 from deutsch_haufig.routes.auth import router as auth_router
 from deutsch_haufig.routes.browse import router as browse_router
+from deutsch_haufig.routes.i18n import router as i18n_router
 from deutsch_haufig.routes.learn import router as learn_router
 from deutsch_haufig.routes.stats import router as stats_router
 from deutsch_haufig.routes.word import router as word_router
-from deutsch_haufig.templating import templates
+from deutsch_haufig.templating import template_response
 
 
 @asynccontextmanager
@@ -34,10 +35,11 @@ def create_app() -> FastAPI:
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request) -> HTMLResponse:
-        return templates.TemplateResponse(request, "index.html", {"title": "Hello, Deutschland"})
+        return template_response(request, "index.html", {"title": "Hello, Deutschland"})
 
     app.include_router(auth_router)
     app.include_router(browse_router)
+    app.include_router(i18n_router)
     app.include_router(word_router)
     app.include_router(learn_router)
     app.include_router(stats_router)

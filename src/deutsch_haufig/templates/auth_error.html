@@ -4,8 +4,8 @@
     <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-red-100 text-red-500 mb-4">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
     </div>
-    <h1 class="text-xl font-bold text-stone-900 mb-2">Fehler</h1>
+    <h1 class="text-xl font-bold text-stone-900 mb-2">{{ _t("auth.error_title") }}</h1>
     <p class="text-stone-500 text-sm">{{ error }}</p>
-    <a href="/auth/login" class="mt-6 inline-block text-brand-600 hover:text-brand-700 text-sm font-medium">Erneut versuchen</a>
+    <a href="/auth/login" class="mt-6 inline-block text-brand-600 hover:text-brand-700 text-sm font-medium">{{ _t("auth.retry") }}</a>
 </div>
 {% endblock %}

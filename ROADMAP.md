@@ -93,6 +93,22 @@ Legend: 🟢 must-have · 🟡 should-have · 🔵 nice-to-have
 
 ---
 
+## M9 — UI language switching (i18n) - Completed
+
+🟢 Three translation files: `src/deutsch_haufig/i18n/{de,en,tr}.json` covering all UI strings.
+🟢 Language resolution order: query param (`?lang=tr`) → cookie (`dh_lang`) → `Accept-Language` header → default `de`.
+🟢 Language switcher dropdown in the navbar (globe icon next to Login/Logout), also available in mobile nav.
+🟢 `GET /lang/{code}` route sets the `dh_lang` cookie and redirects back.
+🟢 `_t("key")` Jinja2 global function in all templates for translation lookups.
+🟢 `_lang` context variable exposing the active language code.
+🟢 All UI strings (nav, landing, browse, learn, word detail, auth pages, stats) are translatable.
+🟢 German content (definitions, examples, dialogues) stays German — only the UI chrome is translated.
+🔵 Per-user language preference persisted in `User.settings_json` (future enhancement).
+
+**Demo:** click the globe icon next to Login → select Türkçe → entire UI switches to Turkish, German learning content unchanged.
+
+---
+
 
 ## Suggested order of attack
 

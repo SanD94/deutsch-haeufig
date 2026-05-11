@@ -2,52 +2,52 @@
 {% block content %}
 <div class="max-w-5xl mx-auto">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
-        <h1 class="text-2xl font-bold text-stone-900">Wörter durchstöbern</h1>
+        <h1 class="text-2xl font-bold text-stone-900">{{ _t("browse.title") }}</h1>
         <span class="text-sm text-stone-400">
-            {% if total == 1 %}1 Wort{% elif total > 1 %}{{ total }} Wörter{% endif %}
+            {% if total == 1 %}{{ _t("browse.count_single") }}{% elif total > 1 %}{{ _t("browse.count_plural", count=total) }}{% endif %}
         </span>
     </div>
 
     <!-- Filters -->
     <form method="get" action="/browse" class="bg-white rounded-xl border border-stone-200 p-4 mb-6 space-y-3 sm:space-y-0 sm:flex sm:flex-wrap sm:items-end sm:gap-3 shadow-sm">
         <div class="flex-1 min-w-[180px]">
-            <label class="block text-xs font-medium text-stone-400 uppercase tracking-wider mb-1.5">Suche</label>
+            <label class="block text-xs font-medium text-stone-400 uppercase tracking-wider mb-1.5">{{ _t("browse.filter_search") }}</label>
             <input type="search" name="q" value="{{ filters.q or '' }}" placeholder="Lemma…"
                    class="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 bg-stone-50">
         </div>
         <div>
-            <label class="block text-xs font-medium text-stone-400 uppercase tracking-wider mb-1.5">Niveau</label>
+            <label class="block text-xs font-medium text-stone-400 uppercase tracking-wider mb-1.5">{{ _t("browse.filter_level") }}</label>
             <select name="level"
                     class="rounded-lg border border-stone-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 bg-stone-50 min-w-[100px]">
-                <option value="">Alle</option>
+                <option value="">{{ _t("browse.filter_all") }}</option>
                 {% for lvl in known_levels %}
                 <option value="{{ lvl }}" {% if filters.level == lvl %}selected{% endif %}>{{ lvl }}</option>
                 {% endfor %}
             </select>
         </div>
         <div>
-            <label class="block text-xs font-medium text-stone-400 uppercase tracking-wider mb-1.5">Wortart</label>
+            <label class="block text-xs font-medium text-stone-400 uppercase tracking-wider mb-1.5">{{ _t("browse.filter_pos") }}</label>
             <select name="pos"
                     class="rounded-lg border border-stone-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 bg-stone-50 min-w-[100px]">
-                <option value="">Alle</option>
+                <option value="">{{ _t("browse.filter_all") }}</option>
                 {% for p in known_pos %}
                 <option value="{{ p }}" {% if filters.pos == p %}selected{% endif %}>{{ p }}</option>
                 {% endfor %}
             </select>
         </div>
         <div>
-            <label class="block text-xs font-medium text-stone-400 uppercase tracking-wider mb-1.5">Häufigkeit</label>
+            <label class="block text-xs font-medium text-stone-400 uppercase tracking-wider mb-1.5">{{ _t("browse.filter_frequency") }}</label>
             <select name="frequency"
                     class="rounded-lg border border-stone-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 bg-stone-50 min-w-[100px]">
-                <option value="">Alle</option>
+                <option value="">{{ _t("browse.filter_all") }}</option>
                 {% for f in known_frequencies %}
                 <option value="{{ f }}" {% if filters.frequency == f %}selected{% endif %}>{{ f }}</option>
                 {% endfor %}
             </select>
         </div>
         <div class="flex gap-2">
-            <button type="submit" class="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition-colors">Filtern</button>
-            <a href="/browse" class="px-4 py-2 rounded-lg border border-stone-200 text-stone-500 text-sm font-medium hover:bg-stone-50 transition-colors">Reset</a>
+            <button type="submit" class="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition-colors">{{ _t("browse.filter_submit") }}</button>
+            <a href="/browse" class="px-4 py-2 rounded-lg border border-stone-200 text-stone-500 text-sm font-medium hover:bg-stone-50 transition-colors">{{ _t("browse.filter_reset") }}</a>
         </div>
     </form>
 
@@ -86,20 +86,20 @@
     {% if limit and total > limit %}
     <div class="flex items-center justify-between mt-6 text-sm">
         <span class="text-stone-400">
-            {% if limit %}{{ offset + 1 }}–{{ [offset + limit, total] | min }} von {% endif %}{{ total }}
+            {% if limit %}{{ offset + 1 }}–{{ [offset + limit, total] | min }} {{ _t("browse.of") }} {% endif %}{{ total }}
         </span>
         <div class="flex gap-2">
             {% if offset > 0 %}
             <a href="?{{ _build_q(filters, limit, 0) }}"
-               class="px-3 py-1.5 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 transition-colors">Erste</a>
+               class="px-3 py-1.5 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 transition-colors">{{ _t("browse.first") }}</a>
             <a href="?{{ _build_q(filters, limit, [offset - limit, 0] | max) }}"
-               class="px-3 py-1.5 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 transition-colors">← Vorherige</a>
+               class="px-3 py-1.5 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 transition-colors">{{ _t("browse.prev") }}</a>
             {% endif %}
             {% if offset + limit < total %}
             <a href="?{{ _build_q(filters, limit, offset + limit) }}"
-               class="px-3 py-1.5 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 transition-colors">Nächste →</a>
+               class="px-3 py-1.5 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 transition-colors">{{ _t("browse.next") }}</a>
             <a href="?{{ _build_q(filters, limit, total - limit) }}"
-               class="px-3 py-1.5 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 transition-colors">Letzte</a>
+               class="px-3 py-1.5 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 transition-colors">{{ _t("browse.last") }}</a>
             {% endif %}
         </div>
     </div>
@@ -110,11 +110,11 @@
         <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-stone-100 text-stone-400 mb-4">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         </div>
-        <p class="text-stone-500 text-lg font-medium">Keine Treffer</p>
+        <p class="text-stone-500 text-lg font-medium">{{ _t("browse.empty_title") }}</p>
         {% if not filters.q and not filters.level and not filters.pos and not filters.frequency %}
-        <p class="text-stone-400 text-sm mt-1"><code class="bg-stone-100 px-1.5 py-0.5 rounded text-xs">uv run ingest</code> ausführen, um den Korpus zu laden.</p>
+        <p class="text-stone-400 text-sm mt-1">{{ _t("browse.empty_hint") }}</p>
         {% endif %}
-        <a href="/browse" class="mt-4 inline-flex text-sm text-brand-600 hover:text-brand-700 font-medium">Filter zurücksetzen →</a>
+        <a href="/browse" class="mt-4 inline-flex text-sm text-brand-600 hover:text-brand-700 font-medium">{{ _t("browse.reset_filters") }}</a>
     </div>
     {% endif %}
 </div>

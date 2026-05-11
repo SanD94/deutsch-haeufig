@@ -27,23 +27,38 @@
         mark { background-color: #e0e7ff; color: #3730a3; border-radius: 0.125rem; padding: 0 0.125rem; }
     </style>
 </head>
-<body class="h-full bg-stone-50 text-stone-800 antialiased" x-data="{ mobileNav: false }">
+<body class="h-full bg-stone-50 text-stone-800 antialiased" x-data="{ mobileNav: false, langOpen: false }">
     <header class="bg-white/80 backdrop-blur-sm border-b border-stone-200 sticky top-0 z-40">
         <nav class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center gap-1 text-sm">
             <a href="/" class="font-extrabold text-lg text-brand-700 hover:text-brand-800 tracking-tight mr-2 shrink-0">
                 <span class="hidden sm:inline">deutsch‑</span><span class="text-brand-500">häufig</span>
             </a>
             <div class="hidden sm:flex items-center gap-1 ml-2">
-                <a href="/browse" class="px-3 py-1.5 rounded-lg text-stone-500 hover:text-stone-800 hover:bg-stone-100 font-medium transition-colors">Browse</a>
-                <a href="/learn" class="px-3 py-1.5 rounded-lg text-stone-500 hover:text-stone-800 hover:bg-stone-100 font-medium transition-colors">Learn</a>
-                <a href="/stats" class="px-3 py-1.5 rounded-lg text-stone-500 hover:text-stone-800 hover:bg-stone-100 font-medium transition-colors">Stats</a>
+                <a href="/browse" class="px-3 py-1.5 rounded-lg text-stone-500 hover:text-stone-800 hover:bg-stone-100 font-medium transition-colors">{{ _t("nav.browse") }}</a>
+                <a href="/learn" class="px-3 py-1.5 rounded-lg text-stone-500 hover:text-stone-800 hover:bg-stone-100 font-medium transition-colors">{{ _t("nav.learn") }}</a>
+                <a href="/stats" class="px-3 py-1.5 rounded-lg text-stone-500 hover:text-stone-800 hover:bg-stone-100 font-medium transition-colors">{{ _t("nav.stats") }}</a>
             </div>
             <div class="flex-1"></div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1">
+                <!-- Language switcher -->
+                <div class="relative" @click.outside="langOpen = false">
+                    <button @click="langOpen = !langOpen" class="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span class="hidden sm:inline">{{ _langs[_lang] }}</span>
+                    </button>
+                    <div x-show="langOpen" x-cloak class="absolute right-0 mt-1 w-32 bg-white rounded-xl border border-stone-200 shadow-lg py-1 z-50">
+                        {% for code, name in {"de": "Deutsch", "en": "English", "tr": "Türkçe"}.items() %}
+                        <a href="/lang/{{ code }}"
+                           class="block px-3 py-1.5 text-sm {% if _lang == code %}text-brand-600 font-semibold bg-brand-50{% else %}text-stone-600 hover:bg-stone-50{% endif %} transition-colors">
+                            {{ name }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
                 {% if request.cookies.get("dh_user_id") %}
-                <a href="/auth/logout" class="text-xs text-stone-400 hover:text-red-500 font-medium transition-colors">Logout</a>
+                <a href="/auth/logout" class="text-xs text-stone-400 hover:text-red-500 font-medium transition-colors">{{ _t("nav.logout") }}</a>
                 {% else %}
-                <a href="/auth/login" class="px-3 py-1.5 rounded-lg text-xs font-medium text-stone-400 hover:text-brand-600 hover:bg-brand-50 transition-colors">Login</a>
+                <a href="/auth/login" class="px-3 py-1.5 rounded-lg text-xs font-medium text-stone-400 hover:text-brand-600 hover:bg-brand-50 transition-colors">{{ _t("nav.login") }}</a>
                 {% endif %}
                 <button @click="mobileNav = !mobileNav" class="sm:hidden p-1.5 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -52,9 +67,16 @@
         </nav>
         <!-- Mobile nav -->
         <div x-show="mobileNav" x-cloak @click.outside="mobileNav = false" class="sm:hidden border-t border-stone-200 bg-white px-4 py-2 space-y-1">
-            <a href="/browse" @click="mobileNav = false" class="block px-3 py-2 rounded-lg text-stone-600 hover:bg-stone-100 font-medium">Browse</a>
-            <a href="/learn" @click="mobileNav = false" class="block px-3 py-2 rounded-lg text-stone-600 hover:bg-stone-100 font-medium">Learn</a>
-            <a href="/stats" @click="mobileNav = false" class="block px-3 py-2 rounded-lg text-stone-600 hover:bg-stone-100 font-medium">Stats</a>
+            <a href="/browse" @click="mobileNav = false" class="block px-3 py-2 rounded-lg text-stone-600 hover:bg-stone-100 font-medium">{{ _t("nav.browse") }}</a>
+            <a href="/learn" @click="mobileNav = false" class="block px-3 py-2 rounded-lg text-stone-600 hover:bg-stone-100 font-medium">{{ _t("nav.learn") }}</a>
+            <a href="/stats" @click="mobileNav = false" class="block px-3 py-2 rounded-lg text-stone-600 hover:bg-stone-100 font-medium">{{ _t("nav.stats") }}</a>
+            <hr class="border-stone-100 my-1">
+            {% for code, name in {"de": "Deutsch", "en": "English", "tr": "Türkçe"}.items() %}
+            <a href="/lang/{{ code }}" @click="mobileNav = false"
+               class="block px-3 py-2 rounded-lg {% if _lang == code %}text-brand-600 font-semibold bg-brand-50{% else %}text-stone-600 hover:bg-stone-100{% endif %} font-medium">
+                {{ name }}
+            </a>
+            {% endfor %}
         </div>
     </header>
     <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

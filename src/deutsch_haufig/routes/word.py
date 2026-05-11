@@ -20,7 +20,7 @@ from deutsch_haufig.dialogue import (
 )
 from deutsch_haufig.models import Collocation, Conjugation, Dialogue, Example, Sense, Word
 from deutsch_haufig.schemas import WordDetail
-from deutsch_haufig.templating import templates
+from deutsch_haufig.templating import template_response
 
 router = APIRouter()
 
@@ -73,7 +73,8 @@ def word_detail(
         # Check for existing dialogues
         dialogues = (
             session.execute(
-                select(Dialogue).where(Dialogue.sense_id == s.id)
+                select(Dialogue)
+                .where(Dialogue.sense_id == s.id)
                 .order_by(Dialogue.created_at.desc())
             )
             .scalars()
@@ -102,7 +103,7 @@ def word_detail(
             }
         )
 
-    return templates.TemplateResponse(
+    return template_response(
         request,
         "word.html",
         {

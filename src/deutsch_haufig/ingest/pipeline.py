@@ -195,16 +195,12 @@ def enrich_all_cached() -> tuple[int, int]:
     enriched = failed = 0
 
     with SessionLocal() as session:
-        words = session.execute(
-            select(Word).where(Word.id > 0).order_by(Word.id)
-        ).scalars().all()
+        words = session.execute(select(Word).where(Word.id > 0).order_by(Word.id)).scalars().all()
 
     skip = 0
     for w in words:
         with SessionLocal() as sess:
-            senses = sess.execute(
-                select(Sense).where(Sense.word_id == w.id)
-            ).scalars().all()
+            senses = sess.execute(select(Sense).where(Sense.word_id == w.id)).scalars().all()
         has_def = any(s.definition_de for s in senses)
         if has_def:
             skip += 1
@@ -234,12 +230,16 @@ def enrich_all_cached() -> tuple[int, int]:
         if (enriched + failed) % 100 == 0:
             logger.info(
                 "cached-enrich: %d enriched, %d failed, %d skipped",
-                enriched, failed, skip,
+                enriched,
+                failed,
+                skip,
             )
 
     logger.info(
         "cached-enrich done: %d enriched, %d failed, %d skipped",
-        enriched, failed, skip,
+        enriched,
+        failed,
+        skip,
     )
     return enriched, failed
 

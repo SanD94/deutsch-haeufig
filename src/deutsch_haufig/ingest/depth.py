@@ -28,15 +28,10 @@ def enrich_collocations() -> int:
 
     total = 0
     with SessionLocal() as session:
-        words = (
-            session.execute(select(Word.id, Word.lemma, Word.pos))
-            .all()
-        )
+        words = session.execute(select(Word.id, Word.lemma, Word.pos)).all()
         # Check which already have collocations
         existing = set(
-            row[0] for row in session.execute(
-                select(Collocation.word_id).distinct()
-            ).all()
+            row[0] for row in session.execute(select(Collocation.word_id).distinct()).all()
         )
 
     for word_id, lemma, pos in words:
@@ -49,12 +44,14 @@ def enrich_collocations() -> int:
 
         with SessionLocal() as session:
             for entry in entries:
-                session.add(Collocation(
-                    word_id=word_id,
-                    collocate=entry.collocate,
-                    category=entry.category,
-                    frequency=entry.frequency,
-                ))
+                session.add(
+                    Collocation(
+                        word_id=word_id,
+                        collocate=entry.collocate,
+                        category=entry.category,
+                        frequency=entry.frequency,
+                    )
+                )
             session.commit()
             total += len(entries)
 
@@ -70,9 +67,7 @@ async def enrich_conjugations(limit: int | None = None) -> int:
     count = 0
     with SessionLocal() as session:
         verbs = (
-            session.execute(
-                select(Word).where(Word.pos == "verb").order_by(Word.frequency.desc())
-            )
+            session.execute(select(Word).where(Word.pos == "verb").order_by(Word.frequency.desc()))
             .scalars()
             .all()
         )
@@ -97,17 +92,20 @@ async def enrich_conjugations(limit: int | None = None) -> int:
 
         with SessionLocal() as session:
             for entry in result:
-                session.add(Conjugation(
-                    word_id=word.id,
-                    tense=entry.tense,
-                    pronoun=entry.pronoun,
-                    form=entry.form,
-                ))
+                session.add(
+                    Conjugation(
+                        word_id=word.id,
+                        tense=entry.tense,
+                        pronoun=entry.pronoun,
+                        form=entry.form,
+                    )
+                )
             session.commit()
             total += len(result)
             count += 1
 
         import asyncio
+
         await asyncio.sleep(0.3)
 
     return total

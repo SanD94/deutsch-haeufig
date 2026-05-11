@@ -24,9 +24,11 @@ def export_backup() -> dict:
     with SessionLocal() as session:
         users = session.execute(select(User)).scalars().all()
         for user in users:
-            cards = session.execute(
-                select(ReviewCard).where(ReviewCard.user_id == user.id)
-            ).scalars().all()
+            cards = (
+                session.execute(select(ReviewCard).where(ReviewCard.user_id == user.id))
+                .scalars()
+                .all()
+            )
 
             user_data = {
                 "id": user.id,
@@ -37,30 +39,36 @@ def export_backup() -> dict:
             }
 
             for card in cards:
-                logs = session.execute(
-                    select(ReviewLog).where(ReviewLog.card_id == card.id).order_by(ReviewLog.ts)
-                ).scalars().all()
+                logs = (
+                    session.execute(
+                        select(ReviewLog).where(ReviewLog.card_id == card.id).order_by(ReviewLog.ts)
+                    )
+                    .scalars()
+                    .all()
+                )
 
-                user_data["cards"].append({
-                    "id": card.id,
-                    "sense_id": card.sense_id,
-                    "stability": card.stability,
-                    "difficulty": card.difficulty,
-                    "due": card.due.isoformat() if card.due else None,
-                    "last_review": card.last_review.isoformat() if card.last_review else None,
-                    "reps": card.reps,
-                    "lapses": card.lapses,
-                    "state": card.state,
-                    "logs": [
-                        {
-                            "ts": log.ts.isoformat() if log.ts else None,
-                            "rating": log.rating,
-                            "elapsed_days": log.elapsed_days,
-                            "scheduled_days": log.scheduled_days,
-                        }
-                        for log in logs
-                    ],
-                })
+                user_data["cards"].append(
+                    {
+                        "id": card.id,
+                        "sense_id": card.sense_id,
+                        "stability": card.stability,
+                        "difficulty": card.difficulty,
+                        "due": card.due.isoformat() if card.due else None,
+                        "last_review": card.last_review.isoformat() if card.last_review else None,
+                        "reps": card.reps,
+                        "lapses": card.lapses,
+                        "state": card.state,
+                        "logs": [
+                            {
+                                "ts": log.ts.isoformat() if log.ts else None,
+                                "rating": log.rating,
+                                "elapsed_days": log.elapsed_days,
+                                "scheduled_days": log.scheduled_days,
+                            }
+                            for log in logs
+                        ],
+                    }
+                )
 
             backup["users"].append(user_data)
 
@@ -77,8 +85,10 @@ def run_backup(output: str | None = None) -> str:
         output = str(backup_dir / f"backup_{ts}.json")
 
     Path(output).write_text(json.dumps(data, indent=2, ensure_ascii=False))
-    print(f"Backup written to {output}  ({len(data['users'])} users, "
-          f"{sum(len(u['cards']) for u in data['users'])} cards)")
+    print(
+        f"Backup written to {output}  ({len(data['users'])} users, "
+        f"{sum(len(u['cards']) for u in data['users'])} cards)"
+    )
     return output
 
 

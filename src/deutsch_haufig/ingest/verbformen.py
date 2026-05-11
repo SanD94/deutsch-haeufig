@@ -120,11 +120,13 @@ def parse_conjugations(html: str) -> list[ConjugationEntry]:
                 if form and form != "—" and form != "–":
                     tense_name = tense_names[tense_idx] if tense_idx < len(tense_names) else ""
                     if tense_name:
-                        results.append(ConjugationEntry(
-                            tense=tense_name,
-                            pronoun=pronoun,
-                            form=form,
-                        ))
+                        results.append(
+                            ConjugationEntry(
+                                tense=tense_name,
+                                pronoun=pronoun,
+                                form=form,
+                            )
+                        )
             tense_idx = min(tense_idx + 1, len(tense_names) - 1)
 
     return results

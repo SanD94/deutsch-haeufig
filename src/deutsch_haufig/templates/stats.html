@@ -5,9 +5,9 @@
 
   <!-- Header -->
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-    <h1 class="text-2xl font-bold text-stone-900">Statistiken</h1>
+    <h1 class="text-2xl font-bold text-stone-900">{{ _t("stats.title") }}</h1>
     <div class="flex items-center gap-2 text-sm">
-      <a href="/stats/csv" class="px-3 py-1.5 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 transition-colors">CSV export</a>
+      <a href="/stats/csv" class="px-3 py-1.5 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 transition-colors">{{ _t("stats.csv_export") }}</a>
       <div class="flex gap-1">
         {% for d in [7, 14, 30, 90] %}
         <a href="/stats?days={{ d }}" class="px-3 py-1.5 rounded-lg border {% if days == d %}bg-brand-600 text-white border-brand-600{% else %}border-stone-200 text-stone-500 hover:bg-stone-50{% endif %} transition-colors">{{ d }}d</a>
@@ -19,46 +19,46 @@
   <!-- Summary cards -->
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
     <div class="bg-white rounded-xl border border-stone-200 p-4 shadow-sm">
-      <p class="text-xs text-stone-400 uppercase tracking-wider font-semibold">Karten</p>
+      <p class="text-xs text-stone-400 uppercase tracking-wider font-semibold">{{ _t("stats.cards") }}</p>
       <p class="text-2xl font-bold text-stone-900 mt-1">{{ total_cards }}</p>
     </div>
     <div class="bg-white rounded-xl border border-stone-200 p-4 shadow-sm">
-      <p class="text-xs text-stone-400 uppercase tracking-wider font-semibold">Bewertungen</p>
+      <p class="text-xs text-stone-400 uppercase tracking-wider font-semibold">{{ _t("stats.reviews") }}</p>
       <p class="text-2xl font-bold text-stone-900 mt-1">{{ total_reviews }}</p>
     </div>
     <div class="bg-white rounded-xl border border-stone-200 p-4 shadow-sm">
-      <p class="text-xs text-stone-400 uppercase tracking-wider font-semibold">Fällig jetzt</p>
+      <p class="text-xs text-stone-400 uppercase tracking-wider font-semibold">{{ _t("stats.due_now") }}</p>
       <p class="text-2xl font-bold text-amber-600 mt-1">{{ due_now }}</p>
     </div>
     <div class="bg-white rounded-xl border border-stone-200 p-4 shadow-sm">
-      <p class="text-xs text-stone-400 uppercase tracking-wider font-semibold">Zeitraum</p>
-      <p class="text-2xl font-bold text-stone-900 mt-1">{{ days }} Tage</p>
+      <p class="text-xs text-stone-400 uppercase tracking-wider font-semibold">{{ _t("stats.period") }}</p>
+      <p class="text-2xl font-bold text-stone-900 mt-1">{{ days }} {{ _t("stats.days") }}</p>
     </div>
   </div>
 
   <!-- Heatmap -->
   <div class="bg-white rounded-xl border border-stone-200 p-5 sm:p-6 shadow-sm">
-    <h2 class="text-base font-semibold text-stone-800 mb-4">Aktivität</h2>
+    <h2 class="text-base font-semibold text-stone-800 mb-4">{{ _t("stats.activity") }}</h2>
     <div class="flex flex-wrap gap-[3px]">
       {% for day in heatmap %}
       <div class="w-[11px] h-[11px] rounded-[3px] {% if day.count == 0 %}bg-stone-100{% elif day.count <= 2 %}bg-emerald-200{% elif day.count <= 5 %}bg-emerald-400{% else %}bg-emerald-600{% endif %}"
-           title="{{ day.date }}: {{ day.count }} Bewertungen"></div>
+           title="{{ day.date }}: {{ day.count }} {{ _t('stats.reviews') }}"></div>
       {% endfor %}
     </div>
     <div class="flex items-center gap-2 mt-3 text-[11px] text-stone-400">
-      <span>weniger</span>
+      <span>{{ _t("stats.less") }}</span>
       <div class="w-[11px] h-[11px] rounded-[3px] bg-stone-100"></div>
       <div class="w-[11px] h-[11px] rounded-[3px] bg-emerald-200"></div>
       <div class="w-[11px] h-[11px] rounded-[3px] bg-emerald-400"></div>
       <div class="w-[11px] h-[11px] rounded-[3px] bg-emerald-600"></div>
-      <span>mehr</span>
+      <span>{{ _t("stats.more") }}</span>
     </div>
   </div>
 
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
     <!-- Retention by level -->
     <div class="bg-white rounded-xl border border-stone-200 p-5 sm:p-6 shadow-sm">
-      <h2 class="text-base font-semibold text-stone-800 mb-3">Retention nach Niveau</h2>
+      <h2 class="text-base font-semibold text-stone-800 mb-3">{{ _t("stats.retention_level") }}</h2>
       {% if level_retention %}
       <div class="space-y-3">
         {% for row in level_retention %}
@@ -75,13 +75,13 @@
         {% endfor %}
       </div>
       {% else %}
-      <p class="text-sm text-stone-400">Noch keine Daten.</p>
+      <p class="text-sm text-stone-400">{{ _t("stats.no_data") }}</p>
       {% endif %}
     </div>
 
     <!-- Retention by POS -->
     <div class="bg-white rounded-xl border border-stone-200 p-5 sm:p-6 shadow-sm">
-      <h2 class="text-base font-semibold text-stone-800 mb-3">Retention nach Wortart</h2>
+      <h2 class="text-base font-semibold text-stone-800 mb-3">{{ _t("stats.retention_pos") }}</h2>
       {% if pos_retention %}
       <div class="space-y-3">
         {% for row in pos_retention %}
@@ -98,23 +98,23 @@
         {% endfor %}
       </div>
       {% else %}
-      <p class="text-sm text-stone-400">Noch keine Daten.</p>
+      <p class="text-sm text-stone-400">{{ _t("stats.no_data") }}</p>
       {% endif %}
     </div>
   </div>
 
   <!-- Hardest words -->
   <div class="bg-white rounded-xl border border-stone-200 p-5 sm:p-6 shadow-sm">
-    <h2 class="text-base font-semibold text-stone-800 mb-3">Schwierigste Wörter</h2>
+    <h2 class="text-base font-semibold text-stone-800 mb-3">{{ _t("stats.hardest_words") }}</h2>
     {% if hardest_words %}
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead>
           <tr class="text-left text-xs font-semibold text-stone-400 uppercase tracking-wider border-b border-stone-100">
-            <th class="py-2 pr-3">Wort</th>
-            <th class="py-2 pr-3">Niveau</th>
-            <th class="py-2 pr-3 text-right">Bewertungen</th>
-            <th class="py-2 pr-3 text-right">Retention</th>
+            <th class="py-2 pr-3">{{ _t("stats.word_col") }}</th>
+            <th class="py-2 pr-3">{{ _t("stats.level_col") }}</th>
+            <th class="py-2 pr-3 text-right">{{ _t("stats.reviews_col") }}</th>
+            <th class="py-2 pr-3 text-right">{{ _t("stats.retention_col") }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-stone-50">
@@ -136,13 +136,13 @@
       </table>
     </div>
     {% else %}
-    <p class="text-sm text-stone-400">Mindestens 2 Bewertungen pro Karte nötig.</p>
+    <p class="text-sm text-stone-400">{{ _t("stats.hardest_min_reviews") }}</p>
     {% endif %}
   </div>
 
   <!-- Forecast -->
   <div class="bg-white rounded-xl border border-stone-200 p-5 sm:p-6 shadow-sm">
-    <h2 class="text-base font-semibold text-stone-800 mb-3">Vorhersage (14 Tage)</h2>
+    <h2 class="text-base font-semibold text-stone-800 mb-3">{{ _t("stats.forecast") }}</h2>
     <div class="flex items-end gap-1 h-24">
       {% set max_f = forecast | map(attribute='count') | max %}
       {% for day in forecast %}
@@ -159,7 +159,7 @@
 
   <!-- Per-card history -->
   <div class="bg-white rounded-xl border border-stone-200 p-5 sm:p-6 shadow-sm">
-    <h2 class="text-base font-semibold text-stone-800 mb-3">Karten-Verlauf (letzte 50)</h2>
+    <h2 class="text-base font-semibold text-stone-800 mb-3">{{ _t("stats.card_history") }}</h2>
     {% if card_history %}
     <div class="space-y-2">
       {% for card in card_history %}
@@ -174,16 +174,16 @@
         <div class="mt-3 pl-5 border-l-2 border-stone-200 space-y-1.5">
           <p class="text-xs text-stone-500">{{ card.sense_definition }}</p>
           {% if card.stability is not none %}
-          <p class="text-xs text-stone-400">Stabilität: {{ card.stability }}d · Schwierigkeit: {{ card.difficulty }}</p>
+          <p class="text-xs text-stone-400">{{ _t("stats.stability") }}: {{ card.stability }}d · {{ _t("stats.difficulty") }}: {{ card.difficulty }}</p>
           {% endif %}
           {% if card.logs %}
           <table class="w-full text-xs mt-2">
             <thead>
               <tr class="text-stone-400">
-                <th class="text-left pr-2 pb-1">Zeit</th>
-                <th class="text-left pr-2 pb-1">Bewertung</th>
-                <th class="text-right pr-2 pb-1">Verstrichen</th>
-                <th class="text-right pb-1">Geplant</th>
+                <th class="text-left pr-2 pb-1">{{ _t("stats.time_col") }}</th>
+                <th class="text-left pr-2 pb-1">{{ _t("stats.rating_col") }}</th>
+                <th class="text-right pr-2 pb-1">{{ _t("stats.elapsed_col") }}</th>
+                <th class="text-right pb-1">{{ _t("stats.scheduled_col") }}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-stone-100">
@@ -203,7 +203,7 @@
       {% endfor %}
     </div>
     {% else %}
-    <p class="text-sm text-stone-400">Noch keine Karten.</p>
+    <p class="text-sm text-stone-400">{{ _t("stats.no_cards") }}</p>
     {% endif %}
   </div>
 

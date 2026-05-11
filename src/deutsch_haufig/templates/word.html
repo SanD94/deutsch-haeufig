@@ -20,12 +20,12 @@
           {{ word.level }}
         </span>
         {% endif %}
-        <span class="text-xs text-stone-400">Häufigkeit {{ word.frequency }}/5</span>
+        <span class="text-xs text-stone-400">{{ _t("word.frequency_label") }} {{ word.frequency }}/5</span>
       </div>
     </div>
     {% if word.lemma %}
     <button onclick="speak('{{ word.lemma }}')" class="flex-shrink-0 p-2.5 rounded-xl text-stone-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
-            title="Aussprache">
+            title="{{ _t('word.pronunciation') }}">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
     </button>
     {% endif %}
@@ -33,7 +33,7 @@
 
   {% if not has_any_definition %}
   <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-6 text-sm text-amber-700">
-    <strong>Definition fehlt</strong> — Für dieses Wort liegt noch keine deutsche Definition vor.
+    <strong>{{ _t("word.definition_missing_title") }}</strong> — {{ _t("word.definition_missing_text") }}
   </div>
   {% endif %}
 
@@ -51,13 +51,13 @@
       {% if sense.has_definition %}
       {{ sense.definition_de }}
       {% else %}
-      <em class="text-stone-400">Definition fehlt</em>
+      <em class="text-stone-400">{{ _t("word.definition_missing_sense") }}</em>
       {% endif %}
     </p>
 
     {% if sense.examples %}
     <div class="mb-4">
-      <p class="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">Beispiele</p>
+      <p class="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">{{ _t("word.examples") }}</p>
       <ul class="space-y-2">
         {% for ex in sense.examples %}
         <li class="flex items-start gap-2 text-sm text-stone-600 bg-stone-50 rounded-xl px-4 py-3 leading-relaxed"
@@ -65,7 +65,7 @@
           <span class="flex-1">{{ ex.text_de }}</span>
           <button onclick="speak(this.dataset.text)" data-text="{{ ex.text_de | e }}"
                   class="tts-btn flex-shrink-0 p-1.5 rounded-lg text-stone-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
-                  title="Aussprache">
+                  title="{{ _t('word.pronunciation') }}">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
           </button>
         </li>
@@ -81,7 +81,7 @@
       {% if dialogue %}
       <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mt-3" id="dialogue-{{ sense.id }}">
         <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-bold text-emerald-700 uppercase tracking-wider">Mini-Dialog</span>
+          <span class="text-xs font-bold text-emerald-700 uppercase tracking-wider">{{ _t("word.mini_dialog") }}</span>
           <span class="text-xs text-emerald-400">{{ dialogue.generated_by }}</span>
         </div>
         <div class="text-sm text-emerald-800 leading-relaxed space-y-0.5">
@@ -94,13 +94,13 @@
         class="mt-2 text-xs px-3 py-1.5 rounded-lg font-semibold bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 transition-colors"
         hx-post="/word/{{ word.id }}/dialogue/{{ sense.id }}"
         hx-target="#dialogue-container-{{ sense.id }}"
-        hx-swap="innerHTML">Neu generieren</button>
+        hx-swap="innerHTML">{{ _t("word.regenerate") }}</button>
       {% else %}
       <button
         class="text-xs px-3 py-1.5 rounded-lg font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors"
         hx-post="/word/{{ word.id }}/dialogue/{{ sense.id }}"
         hx-target="#dialogue-container-{{ sense.id }}"
-        hx-swap="innerHTML">Mini-Dialog zeigen</button>
+        hx-swap="innerHTML">{{ _t("word.show_dialog") }}</button>
       {% endif %}
     </div>
     {% endif %}
@@ -108,13 +108,13 @@
   {% endfor %}
 
   <p class="text-xs text-stone-400 mb-8">
-    Quelle: {{ dwds_attribution }}
+    {{ dwds_attribution }}
   </p>
 
   <!-- Collocations -->
   {% if collocations %}
   <div class="bg-white rounded-2xl border border-stone-200 p-5 sm:p-6 shadow-sm mb-4">
-    <h2 class="text-sm font-semibold text-stone-800 mb-3">Typische Verbindungen</h2>
+    <h2 class="text-sm font-semibold text-stone-800 mb-3">{{ _t("word.collocations") }}</h2>
     <div class="flex flex-wrap gap-2">
       {% for col in collocations %}
       <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-brand-50 text-brand-700 border border-brand-100">
@@ -129,7 +129,7 @@
   <!-- Verb conjugations -->
   {% if conjugations %}
   <div class="bg-white rounded-2xl border border-stone-200 p-5 sm:p-6 shadow-sm mb-4">
-    <h2 class="text-sm font-semibold text-stone-800 mb-3">Konjugation</h2>
+    <h2 class="text-sm font-semibold text-stone-800 mb-3">{{ _t("word.conjugation") }}</h2>
     <div class="space-y-4">
       {% for group in conjugations %}
       <div>
@@ -149,9 +149,9 @@
   {% endif %}
 
   <div class="flex gap-3 text-sm pt-2">
-    <a href="/browse" class="text-brand-600 hover:text-brand-700 font-medium">← Zurück zur Liste</a>
+    <a href="/browse" class="text-brand-600 hover:text-brand-700 font-medium">{{ _t("word.back_to_list") }}</a>
     <span class="text-stone-200">·</span>
-    <a href="/learn" class="text-emerald-600 hover:text-emerald-700 font-medium">Weiter lernen →</a>
+    <a href="/learn" class="text-emerald-600 hover:text-emerald-700 font-medium">{{ _t("word.continue_learning") }}</a>
   </div>
 </div>
 

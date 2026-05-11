@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, joinedload
 from deutsch_haufig.db import get_session
 from deutsch_haufig.models import ReviewCard, ReviewLog, Sense, User, Word
 from deutsch_haufig.scheduler import FSRSScheduler, Rating
-from deutsch_haufig.templating import templates
+from deutsch_haufig.templating import template_response
 
 router = APIRouter()
 
@@ -310,7 +310,7 @@ def learn(
     if not due_cards and not new_senses:
         total_words = session.execute(select(func.count(Word.id))).scalar_one()
         if total_words == 0:
-            resp = templates.TemplateResponse(
+            resp = template_response(
                 request,
                 "learn.html",
                 {
@@ -389,7 +389,7 @@ def learn(
     )
     total_remaining = remaining_due + remaining_new_q
 
-    resp = templates.TemplateResponse(
+    resp = template_response(
         request,
         "learn.html",
         {
