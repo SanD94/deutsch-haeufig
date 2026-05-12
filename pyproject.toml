@@ -30,6 +30,7 @@ dev = [
 
 [project.scripts]
 web = "deutsch_haufig.main:run"
+web-local = "deutsch_haufig.main:run_local"
 ingest = "deutsch_haufig.ingest.pipeline:main"
 backup = "deutsch_haufig.backup:main"
 enrich-depth = "deutsch_haufig.ingest.depth:main"

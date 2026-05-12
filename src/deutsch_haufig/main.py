@@ -61,5 +61,17 @@ def run() -> None:
     )
 
 
+def run_local() -> None:
+    """LAN-accessible entry: ``uv run web-local``."""
+    import uvicorn
+
+    uvicorn.run(
+        "deutsch_haufig.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+    )
+
+
 if __name__ == "__main__":
     run()
