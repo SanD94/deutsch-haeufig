@@ -35,10 +35,11 @@ The old vocabeo scraper (`ingest/vocabeo.py`) is kept for reference but deprecat
 
 | # | Requirement | Source of truth |
 |---|---|---|
-| 1 | Word meaning shown **in German** | [dwds.de](https://www.dwds.de) (Wörterbuch + DWDS-Korpus) |
-| 2 | **Several** example sentences in context; on demand a **paragraph / mini-dialogue** | dwds.de corpus + LLM-generated dialogue, cached |
-| 3 | **Spaced Repetition** algorithm to schedule reviews | FSRS (preferred) / SM-2 fallback |
-| 4 | **Web application** with a clean PoC | Python (FastAPI) + SQLite + HTMX/Alpine front-end |
+| 1 | Word meaning shown **in German** | [dwds.de](https://www.dwds.de) — HTML scrape of `/wb/{lemma}` (no API for definitions) |
+| 2 | **Several** example sentences in context | DWDS korpus API `GET /r?q={lemma}&view=json` |
+| 3 | On-demand paragraph / mini-dialogue | LLM-generated, cached in `Dialogue` table |
+| 4 | **Spaced Repetition** algorithm | FSRS via `fsrs` Python package |
+| 5 | **Web application** | Python (FastAPI) + SQLite + HTMX/Alpine front-end |
 
 ---
 
@@ -52,15 +53,15 @@ Word
   pos             TEXT          -- noun | verb | adj | adv | prep | conj | pron | interj | num
   level           TEXT NULL     -- A1 | A2 | B1 | null
   frequency       INTEGER       -- 0 (Goethe words don't carry frequency; reserved for future)
-  ipa             TEXT NULL
+  ipa             TEXT NULL     -- from /api/ipa/
   plural          TEXT NULL     -- nouns only
-  source_ref      TEXT          -- e.g. "dwds:goethe:A1" / "dwds:goethe:A2"
+  source_ref      TEXT          -- e.g. "dwds:goethe:A1"
 
 Sense                            -- one Word can have multiple senses
   id              INTEGER PK
   word_id         FK -> Word
   order           INTEGER       -- sense ordering from DWDS
-  definition_de   TEXT          -- German monolingual definition (from dwds)
+  definition_de   TEXT          -- German monolingual definition (from HTML scrape of /wb/{lemma})
   register        TEXT NULL     -- ugs., geh., fachspr., …
   domain          TEXT NULL     -- e.g. "Medizin"
 
@@ -68,7 +69,7 @@ Example
   id              INTEGER PK
   sense_id        FK -> Sense
   text_de         TEXT
-  source          TEXT          -- "dwds-korpus" | "vocabeo" | "generated"
+  source          TEXT          -- "dwds-korpus" | "generated"
   translation_en  TEXT NULL     -- optional fallback only
 
 Dialogue                         -- on-demand paragraph/conversation
@@ -103,38 +104,47 @@ ReviewLog
 ## 4. Word ingestion pipeline
 
 ```
-[DWDS Goethe CSV API]              [dwds.de]
-        |                               |
-        v                                v
-  fetch A1/A2/B1 CSV           fetch Wörterbuch HTML
-        |                          + korpus API (JSON)
-        v                                |
-  parse rows                      extract senses + examples
-        \                               /
-         \                             /
-          v                           v
-                goethe_words  ── upsert ──▶ SQLite (Word, Sense, Example)
-                                                  |
-                                                  v
-                                   optional: LLM generates dialogue (cached)
+[DWDS APIs]                        [DWDS HTML scrape]
+     |                                     |
+     v                                     v
+  Goethe CSV                      /wb/{lemma} page
+  /api/lemma/goethe/{level}.csv   (definitions only)
+     |                                     |
+     v                                     v
+  parse rows -> Word              parse lesarten -> Sense
+     |                                     |
+     +--------+----------------------------+
+              |
+              v
+  [DWDS korpus API]
+  /r?q={lemma}&view=json&limit=10
+              |
+              v
+  parse ctx_ arrays -> Example
+              |
+              v
+         SQLite (Word, Sense, Example)
+              |
+              v
+  optional: LLM generates dialogue (cached)
 ```
 
 Steps:
 
-1. **Fetch DWDS Goethe CSVs** for A1, A2, B1 → `data/goethe/goethe_{level}.csv`.
-2. **Parse CSV rows** into `GoetheEntry(lemma, url, pos, level, article, genus, only_plural)`.
-3. **Upsert into `Word` table** deduped on `(lemma, pos)` — if the same word appears in multiple levels, keep the lowest (most basic) level.
-4. **Enrich via dwds.de** for each word:
-   - Fetch Wörterbuch page → 1..n `Sense` rows with `definition_de` (monolingual).
-   - Fetch DWDS-Korpus API → up to N=5 authentic example sentences per sense.
-5. Persist everything to **SQLite**. Re-runnable; idempotent on `(lemma, pos)`.
+1. **Fetch DWDS Goethe CSVs** for A1, A2, B1 → `data/goethe/goethe_{level}.csv`. (API call)
+2. **Parse CSV rows** → upsert into `Word` table deduped on `(lemma, pos)`; keep lowest CEFR level.
+3. **Fetch definitions** from `/wb/{lemma}` HTML. **Note: there is no DWDS API for definitions** — the `/api/wb/snippet` endpoint only returns lemma + wortart metadata, not definition text. HTML scraping is the only option. Cache raw HTML to `data/dwds_cache/`.
+4. **Fetch examples** from korpus API `GET /r?q={lemma}&format=full&view=json&limit=10&corpus=kern`. Reconstruct sentences from the `ctx_` token arrays. Cache JSON to `data/dwds_cache/corpus/`.
+5. **Optional: fetch IPA** from `GET /api/ipa/?q={lemma}`. Cache to `data/dwds_cache/ipa/`.
+6. Persist everything to **SQLite**. Re-runnable; idempotent on `(lemma, pos)`.
 
 ### CLI
 
 ```
-uv run ingest goethe        # fetch + seed all three Goethe levels
-uv run ingest enrich        # fetch DWDS defs + examples for words that lack them
-uv run ingest cached-enrich # same, from local cache only (no HTTP)
+uv run ingest goethe            # fetch + seed all three Goethe levels
+uv run ingest enrich            # fetch defs (HTML) + examples (API) + IPA (API)
+uv run ingest enrich --corpus-api  # fetch examples via API only
+uv run ingest enrich --with-ipa    # also fetch IPA
 ```
 
 ---
@@ -159,7 +169,8 @@ Why FSRS over SM-2: better data-driven scheduling, proven open-source implementa
 | Web framework | **FastAPI** | Async, typed, tiny boilerplate; auto OpenAPI for later. |
 | DB | **SQLite** (via SQLAlchemy 2.x) | Zero-setup; perfect for PoC; one-file backup. |
 | Front-end | **Jinja2 + HTMX + Alpine.js + Tailwind** | No SPA build step; full keyboard UX; trivially deployable. |
-| Scraping | **httpx + selectolax** | Fast, async-friendly. |
+| HTTP | **httpx** | Async, connection-pooled, used for all API calls + HTML fetches. |
+| HTML parsing | **selectolax** | Minimal dependency for the one remaining HTML scrape (definitions). |
 | SRS | **`fsrs`** PyPI package | Well-maintained reference implementation. |
 | LLM (optional) | OpenAI-compatible API behind a `DialogueProvider` interface | Easy to mock/disable. |
 | Testing | **pytest** + **httpx.AsyncClient** | Standard. |
@@ -171,10 +182,10 @@ Why FSRS over SM-2: better data-driven scheduling, proven open-source implementa
 
 The PoC must demonstrate the full loop end-to-end on the **~3600 Goethe words**:
 
-- [x] `uv run ingest goethe` fetches and seeds A1 + A2 + B1 words from DWDS.
-- [x] For each: pull German definition + ≥3 corpus examples from dwds.
+- [x] `uv run ingest goethe` fetches and seeds A1 + A2 + B1 words from DWDS CSV API.
+- [x] `uv run ingest enrich` pulls definitions (via HTML), examples (via korpus API), and IPA (via API).
 - [x] Browse page: filter by level / pos.
-- [x] Word detail page: German definition, examples, "Show conversation" button (LLM, cached).
+- [x] Word detail page: German definition, examples, IPA, "Show conversation" button (LLM, cached).
 - [x] Learn page: FSRS-driven review queue with 4-button rating, keyboard shortcuts (1/2/3/4).
 - [x] All data in `app.db` (SQLite), seed script reproducible.
 
@@ -189,9 +200,12 @@ deutsch-haufig/
 ├── pyproject.toml
 ├── app.db                       # gitignored
 ├── data/
-│   ├── vocabeo_seed.jsonl       # deprecated, kept for reference
-│   ├── goethe/                  # cached Goethe CSV files
-│   └── dwds_cache/              # cached Wörterbuch HTML + korpus JSON
+│   ├── goethe/                  # cached Goethe CSV files (API)
+│   ├── dwds_cache/
+│   │   ├── *.html               # cached /wb/{lemma} pages (HTML scrape for definitions)
+│   │   ├── corpus/*.json        # cached korpus API responses (JSON)
+│   │   └── ipa/*.json           # cached IPA API responses (JSON)
+│   └── vocabeo_seed.jsonl       # deprecated, kept for reference
 ├── src/deutsch_haufig/
 │   ├── __init__.py
 │   ├── main.py                  # FastAPI entrypoint
@@ -204,9 +218,9 @@ deutsch-haufig/
 │   │   ├── fsrs_scheduler.py
 │   │   └── sm2_scheduler.py
 │   ├── ingest/
-│   │   ├── goethe.py            # DWDS Goethe CSV fetcher + parser
+│   │   ├── goethe.py            # DWDS Goethe CSV fetcher + parser (API)
 │   │   ├── vocabeo.py           # deprecated vocabeo scraper
-│   │   ├── dwds.py              # definition + examples fetcher
+│   │   ├── dwds.py              # definition HTML parser + API fetchers
 │   │   └── pipeline.py          # CLI: `uv run ingest`
 │   ├── dialogue/
 │   │   ├── provider.py          # interface
@@ -218,32 +232,46 @@ deutsch-haufig/
 │   │   └── api.py
 │   └── templates/               # Jinja2 + HTMX partials
 └── tests/
-    ├── test_ingest_goethe.py    # M1-DWDS: Goethe CSV parser
+    ├── test_ingest_goethe.py    # Goethe CSV parser tests
     ├── test_ingest_vocabeo.py   # deprecated vocabeo parser tests
-    ├── test_ingest_dwds.py      # M2: DWDS HTML parser
+    ├── test_ingest_dwds.py      # DWDS HTML parser + API tests
     ├── test_scheduler.py
     └── test_*.py
 ```
 
 ---
 
-## 9. Risks & mitigations
+## 9. Source methods: API vs HTML scraping
+
+| Data | Source | Method | Notes |
+|---|---|---|---|
+| Word lists (A1/A2/B1) | `GET /api/lemma/goethe/{level}.csv` | CSV API | ✅ Fast, stable |
+| Definitions | `GET /wb/{lemma}` | HTML scrape | ✅ Only option — no API for definition text |
+| Corpus examples | `GET /r?q={lemma}&view=json` | JSON API | ✅ Richer than HTML-embedded snippets |
+| IPA | `GET /api/ipa/?q={lemma}` | JSON API | ✅ Clean JSON |
+| Collocations | `GET /wb/{lemma}` | HTML scrape | ⏳ Future — extracted from HTML |
+| Conjugations | Verbformen (external) | HTML scrape | ⏳ Future |
+
+---
+
+## 10. Risks & mitigations
 
 | Risk | Mitigation |
 |---|---|
 | DWDS Goethe CSV format changes | Isolate parser in `ingest/goethe.py`, snapshot CSV fixtures for tests. |
-| DWDS HTML changes | Isolate parser in `ingest/dwds.py`, snapshot a fixture per word for tests. |
-| LLM cost / hallucination for dialogues | Generate **on demand only**, cache in DB, mark `generated_by`, allow user to regenerate or report. |
-| FSRS misuse | Use the reference lib; don't reinvent; cover with tests for: new card → learning → review transitions. |
-| Scope creep | Hard cut at v0.1 (see §7); everything else lives in ROADMAP.md. |
+| DWDS HTML changes (definitions) | Isolate parser in `ingest/dwds.py`, snapshot fixture per word for tests. |
+| DWDS korpus API format changes | Isolate JSON parser, snapshot fixture response for tests. |
+| LLM cost / hallucination for dialogues | Generate **on demand only**, cache in DB, allow regeneration. |
+| FSRS misuse | Use the reference lib; don't reinvent; cover with tests. |
+| Scope creep | Hard cut at v0.1; everything else in ROADMAP.md. |
 
 ---
 
-## 10. Definition of done for the PoC
+## 11. Definition of done for the PoC
 
 1. `uv run ingest goethe` populates `app.db` with ~3600 Goethe words across A1-A2-B1.
-2. `uv run ingest enrich` fetches definitions + examples for all of them.
+2. `uv run ingest enrich` fetches definitions (HTML) + examples (API) + IPA (API) for all of them.
 3. `uv run web` starts the app at `http://localhost:8000`.
-4. From the browse page I can pick a word, read its **German** definition + ≥3 examples, and request a **dialogue**.
+4. From the browse page I can pick a word, read its **German** definition + ≥3 corpus examples + IPA.
 5. From `/learn` I can review cards by level; ratings persist; due dates change in line with FSRS.
 6. `pytest` is green; basic CI on push.

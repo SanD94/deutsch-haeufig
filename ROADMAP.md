@@ -29,7 +29,7 @@ levels A1, A2, B1. Source: https://www.dwds.de/d/api#wb-list-goethe
 - CSV: `https://www.dwds.de/api/lemma/goethe/{A1,A2,B1}.csv`
 - JSON: `https://www.dwds.de/api/lemma/goethe/{A1,A2,B1}.json`
 
-🟢 `ingest/goethe.py` — fetch DWDS Goethe word lists (CSV or JSON):
+🟢 `ingest/goethe.py` — fetch DWDS Goethe word lists (CSV):
    - Fetch all three CSV files at once via httpx.
    - Parse each row into `(lemma, url, pos, genus, article, onlypl)`.
    - CSV columns: `Lemma`, `URL`, `Wortart`, `Genus`, `Artikel`, `nur_im_Plural`.
@@ -38,13 +38,11 @@ levels A1, A2, B1. Source: https://www.dwds.de/d/api#wb-list-goethe
    - For nouns, populate `article` from the `Artikel` column (e.g. `"der, das"`).
    - Tag each word with its CEFR level (`A1`, `A2`, `B1`).
 
-🟢 `ingest/pipeline.py seed-goethe` — upsert Goethe words into `Word` table:
+🟢 `ingest/pipeline.py goethe` subcommand — upsert Goethe words into `Word` table:
    - Dedup on `(lemma, pos)` — the same word can appear across levels (e.g. `Haus` in A1 + B1);
      when that happens, keep the *lowest* level (most basic).
    - Set `source_ref = "dwds:goethe:{level}"`.
-   - Print summary: *"X inserted, Y skipped (duplicates), Z already exist"*.
-
-🟢 `uv run ingest goethe` (one command to fetch + seed all three levels).
+   - Print summary per level.
 
 🟢 Tests: fixture CSV snippets for each level; parser handles `nur_im_Plural`-only
    entries, multi-article nouns (`"der, das"`), and missing optional fields.
@@ -63,40 +61,70 @@ uv run ingest goethe
 
 ---
 
-## M2 — German definitions & examples from dwds — Completed
+## M2 — Definitions from DWDS via HTML parsing
+
+**Definitions are NOT available through any documented DWDS API.** The
+`/api/wb/snippet` endpoint only returns metadata (lemma, wortart, url).
+The `/wb/{lemma}` HTML page is the only reliable source for German-only
+definitions, register/domain markers, and embedded corpus examples.
 
 🟢 `ingest/dwds.py`:
-   - Fetch Wörterbuch entry per lemma+pos.
-   - Extract 1..n `Sense.definition_de`.
-   - Fetch ≥3 corpus examples per sense (`Example.text_de`, `source="dwds-korpus"`).
-🟢 `ingest/pipeline.py enrich --limit N` upserts senses + examples; idempotent.
+   - Fetch `/wb/{lemma}` HTML page via httpx.
+   - Parse with selectolax to extract 1..n `Sense.definition_de` from
+     `div.dwdswb-lesart` / `span.dwdswb-definition` selectors.
+   - Extract register (`span.dwdswb-stilebene`) and domain (`span.dwdswb-stilfaerbung`).
+   - Embed corpus examples from `span.dwdswb-belegtext` as fallback.
+   - Cache raw HTML to `data/dwds_cache/`.
+🟢 `ingest/pipeline.py enrich` upserts senses.
 🟢 Word detail page: monolingual definition, examples, attribution to dwds.
 🟡 Fallback: if dwds lookup fails, mark `Sense.definition_de = NULL` and surface a "Definition fehlt" badge.
 🟢 Tests: snapshot parser against 10 saved HTML fixtures (covers nouns, verbs, particles).
 
-**Demo:** click any A1 word → German definition + 3 real corpus examples render.
+**Demo:** click any A1 word → German definition + corpus examples render.
 
 ---
 
-## M2a — DWDS corpus examples via API
+## M2a — Corpus examples via DWDS API (replaces HTML-embedded examples)
 
-Currently examples are scraped from the Wörterbuch page HTML (embedded `dwdswb-belegtext`
-spans). The number and quality vary. The DWDS korpus API at
-`https://www.dwds.de/r/?q={lemma}&view=json&limit=5` returns richer, more diverse
-sentences with proper attribution and date metadata.
+The HTML pages embed corpus examples as `dwdswb-belegtext` spans, but these are
+limited in number and quality. The DWDS korpus search API at
+`https://www.dwds.de/r/?q={lemma}&view=json&format=full&limit=10` returns
+richer, more diverse sentences with proper bibliographic metadata.
 
-🟡 `ingest/dwds.py` — add `fetch_corpus_examples(lemma, sense_idx, limit=5)`:
-   - Call `https://www.dwds.de/r/?q={lemma}&format=full&view=json&limit=5`.
-   - Parse the JSON response; extract sentence text for each hit.
+🟢 `ingest/dwds.py` — add `fetch_corpus_api(lemma, limit=10)`:
+   - Call `https://www.dwds.de/r/?q={lemma}&format=full&view=json&limit=10&corpus=kern`
+     using the `kern` corpus (higher quality, literary sources).
+   - Parse the JSON response; extract sentence text from `ctx_` arrays
+     by concatenating all `w` tokens with `ws=1` (non-space-separated tokens get `ws=0`).
    - Cache responses in `data/dwds_cache/corpus/{lemma}.json`.
-   - Fall back to embedded HTML examples if the API returns nothing.
+   - If kernel corpus returns less than N results, supplement with `corpus=dwdsxl`.
+   - On pipeline enrich: prefer API examples; fall back to HTML-embedded `belegtext`.
 
-🟡 Pipeline: when enriching a word, prefer API examples (richer, more diverse).
-   Only fall back to HTML-embedded `dwdswb-belegtext` snippets.
+🟢 Pipeline option: `uv run ingest enrich --corpus-api` enables API-based
+   example fetching specifically (vs HTML scraping).
+
+🟡 Graceful degradation: if the korpus API returns 0 results (rare words),
+   fall back to examples extracted from HTML.
+
+🟢 Tests: fixture JSON responses from korpus API; parser reconstructs
+   sentences correctly from structured KWIC data.
 
 ---
 
-## M3 — Spaced repetition core — Completed
+## M2b — IPA pronunciation via API
+
+The `/api/ipa/?q={lemma}` endpoint returns IPA notation — no HTML scraping needed.
+
+🟡 `ingest/dwds.py` — add `fetch_ipa(lemma)`:
+   - Call `https://www.dwds.de/api/ipa/?q={lemma}`.
+   - Parse JSON response; populate `Word.ipa` with the first result.
+   - Cache to `data/dwds_cache/ipa/{lemma}.json`.
+
+🟡 Pipeline: optionally fetch IPA during enrichment (`--with-ipa`).
+
+---
+
+## M3 — Spaced repetition core - Completed
 
 🟢 `Scheduler` interface; `FSRSScheduler` implementation using `fsrs` lib.
 🟢 `ReviewCard` auto-created on first encounter of a sense in `/learn`.
@@ -158,8 +186,8 @@ sentences with proper attribution and date metadata.
 ## M8 — Content depth (ongoing) - Completed
 
 🔵 Add B1 → B2 → C1 lemmas (enriched 1174+ words across A1-B1 from existing pipeline).
-🔵 Collocations panel ("Typische Verbindungen") from DWDS — extracted from cached HTML via `uv run enrich-depth collocations`.
-🔵 Verb conjugation table from Verbformen — `uv run enrich-depth conjugations --limit N`.
+🔵 Collocations panel ("Typische Verbindungen") from DWDS — extracted from cached HTML.
+🔵 Verb conjugation table from Verbformen.
 🔵 Synonyms / antonyms (OpenThesaurus) — future work (not implemented).
 
 ---
@@ -180,14 +208,30 @@ sentences with proper attribution and date metadata.
 
 ---
 
+## Summary: API vs HTML scraping
+
+| Data | Source | Method | Status |
+|---|---|---|---|
+| Word lists (A1/A2/B1) | `GET /api/lemma/goethe/{level}.csv` | CSV API | ✅ Done (M1-DWDS) |
+| Definitions | `GET /wb/{lemma}` | HTML scraping | ✅ Done (M2) — no API alternative |
+| Corpus examples | `GET /r?q={lemma}&view=json` | JSON API | 🔄 M2a (replace HTML) |
+| IPA | `GET /api/ipa/?q={lemma}` | JSON API | 🔄 M2b |
+| Frequency | `GET /api/frequency/?q={lemma}` | JSON API | 📋 Future |
+| Collocations | `GET /wb/{lemma}` | HTML scraping | 📋 Future — no API |
+| Conjugations | Verbformen (external) | HTML scraping | 📋 Future |
+
+---
+
 ## Suggested implementation order for next steps
 
 ```
-M1-DWDS (fetch + seed Goethe lists)
+M1-DWDS (fetch + seed Goethe lists)               — done
     ↓
-M2a    (corpus examples via API instead of HTML snippets)
+M2a    (korpus API examples instead of HTML)       — next
     ↓
-Re-enrich all Goethe words: dwds definitions + API examples
+M2b    (IPA via API)                                — optional
+    ↓
+Re-enrich all Goethe words: dwds definitions (HTML) + API examples + IPA
 ```
 
 The existing M3/M4/M5/M6/M7/M8/M9 features are all complete and work with
