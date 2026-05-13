@@ -8,7 +8,60 @@ Legend: 🟢 must-have · 🟡 should-have · 🔵 nice-to-have
 
 ## M0 — Project skeleton - Completed
 
-## M1 — Seed ingest from vocabeo - Completed
+## M1 — Seed ingest from vocabeo - Completed (deprecated)
+
+The original M1 scraped vocabeo.com/browse for a ~6200-word seed list. This worked
+but the vocabeo list is noisy — many entries are not high-quality, definitions
+were in English, and CEFR levels were only present for a subset.
+
+**Replaced by M1-DWDS below.** The `vocabeo.py` scraper and `data/vocabeo_seed.jsonl`
+remain in the repo for reference but are no longer the primary seed source.
+Existing vocabeo-derived words in the DB should be migrated or left in place
+(they will have `source_ref LIKE 'vocabeo:%'` and can co-exist).
+
+---
+
+## M1-DWDS — Seed ingest from DWDS Goethe-Zertifikat word lists
+
+The authoritative word lists are published by DWDS for the Goethe-Zertifikat
+levels A1, A2, B1. Source: https://www.dwds.de/d/api#wb-list-goethe
+
+- CSV: `https://www.dwds.de/api/lemma/goethe/{A1,A2,B1}.csv`
+- JSON: `https://www.dwds.de/api/lemma/goethe/{A1,A2,B1}.json`
+
+🟢 `ingest/goethe.py` — fetch DWDS Goethe word lists (CSV or JSON):
+   - Fetch all three CSV files at once via httpx.
+   - Parse each row into `(lemma, url, pos, genus, article, onlypl)`.
+   - CSV columns: `Lemma`, `URL`, `Wortart`, `Genus`, `Artikel`, `nur_im_Plural`.
+   - Save raw CSV to `data/goethe/` cache (idempotent, re-fetch only on cache miss).
+   - Normalize DWDS wordart to our `pos` mapping (e.g. `"Substantiv"` → `"noun"`).
+   - For nouns, populate `article` from the `Artikel` column (e.g. `"der, das"`).
+   - Tag each word with its CEFR level (`A1`, `A2`, `B1`).
+
+🟢 `ingest/pipeline.py seed-goethe` — upsert Goethe words into `Word` table:
+   - Dedup on `(lemma, pos)` — the same word can appear across levels (e.g. `Haus` in A1 + B1);
+     when that happens, keep the *lowest* level (most basic).
+   - Set `source_ref = "dwds:goethe:{level}"`.
+   - Print summary: *"X inserted, Y skipped (duplicates), Z already exist"*.
+
+🟢 `uv run ingest goethe` (one command to fetch + seed all three levels).
+
+🟢 Tests: fixture CSV snippets for each level; parser handles `nur_im_Plural`-only
+   entries, multi-article nouns (`"der, das"`), and missing optional fields.
+
+**Numbers:** ~800 A1, ~1200 A2, ~1600 B1 ≈ **3600 words total** — all officially
+curated by Goethe-Institut, all with guaranteed DWDS dictionary coverage.
+
+**Demo:**
+```
+uv run ingest goethe
+→ A1: 813 inserted, 0 skipped
+→ A2: 1187 inserted, 42 skipped (duplicates across levels)
+→ B1: 1561 inserted, 136 skipped
+→ Total: 3561 words in DB
+```
+
+---
 
 ## M2 — German definitions & examples from dwds — Completed
 
@@ -22,6 +75,24 @@ Legend: 🟢 must-have · 🟡 should-have · 🔵 nice-to-have
 🟢 Tests: snapshot parser against 10 saved HTML fixtures (covers nouns, verbs, particles).
 
 **Demo:** click any A1 word → German definition + 3 real corpus examples render.
+
+---
+
+## M2a — DWDS corpus examples via API
+
+Currently examples are scraped from the Wörterbuch page HTML (embedded `dwdswb-belegtext`
+spans). The number and quality vary. The DWDS korpus API at
+`https://www.dwds.de/r/?q={lemma}&view=json&limit=5` returns richer, more diverse
+sentences with proper attribution and date metadata.
+
+🟡 `ingest/dwds.py` — add `fetch_corpus_examples(lemma, sense_idx, limit=5)`:
+   - Call `https://www.dwds.de/r/?q={lemma}&format=full&view=json&limit=5`.
+   - Parse the JSON response; extract sentence text for each hit.
+   - Cache responses in `data/dwds_cache/corpus/{lemma}.json`.
+   - Fall back to embedded HTML examples if the API returns nothing.
+
+🟡 Pipeline: when enriching a word, prefer API examples (richer, more diverse).
+   Only fall back to HTML-embedded `dwdswb-belegtext` snippets.
 
 ---
 
@@ -109,13 +180,16 @@ Legend: 🟢 must-have · 🟡 should-have · 🔵 nice-to-have
 
 ---
 
-
-## Suggested order of attack
+## Suggested implementation order for next steps
 
 ```
-M0 → M1 → M2 → M3   ← end of week 1: a working monolingual SRS for ~200 A1 words
-            ↓
-           M4 → M5  ← end of week 2: shippable v0.1 single-user app
-                ↓
-               M6 → M7 → M8
+M1-DWDS (fetch + seed Goethe lists)
+    ↓
+M2a    (corpus examples via API instead of HTML snippets)
+    ↓
+Re-enrich all Goethe words: dwds definitions + API examples
 ```
+
+The existing M3/M4/M5/M6/M7/M8/M9 features are all complete and work with
+whatever words are in the DB — they don't care whether words came from vocabeo
+or Goethe lists.

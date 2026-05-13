@@ -1,5 +1,9 @@
 """M2 — DWDS definition parser tests.
 
+These tests verify parsing of raw DWDS Wörterbuch HTML pages — the same
+code that enriches Goethe-originated words (M1-DWDS) with German-only
+definitions and embedded corpus examples.
+
 Fixtures cover nouns, verbs, and particles from dwds.de:
 
   fixtures/dwds/noun_haus.html    basic noun entry "Haus"

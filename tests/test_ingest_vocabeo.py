@@ -1,4 +1,11 @@
-"""M1 — vocabeo seed scraper parser tests.
+"""[DEPRECATED] M1 — vocabeo seed scraper parser tests.
+
+⚠ This test file covers the original vocabeo.com/browse scraper, which
+has been replaced by DWDS Goethe-Zertifikat word lists (see
+:mod:`test_ingest_goethe` and :mod:`deutsch_haufig.ingest.goethe`).
+
+The vocabeo scraper is kept for reference but is no longer the primary
+seed source. These tests prevent bit-rot while the code remains.
 
 Five fixture rows cover the structural variants we found on
 vocabeo.com/browse in April 2026:

@@ -24,6 +24,10 @@ from deutsch_haufig.db import SessionLocal, init_db
 from deutsch_haufig.ingest.dwds import (
     DWDSEntry,
 )
+from deutsch_haufig.ingest.goethe import (
+    GoetheEntry,
+    fetch_all_goethe_lists,
+)
 from deutsch_haufig.ingest.vocabeo import (
     VocabeoEntry,
     read_jsonl,
@@ -35,6 +39,76 @@ from deutsch_haufig.models import Example, Sense, Word
 logger = logging.getLogger(__name__)
 
 DEFAULT_SEED_PATH = settings.data_dir / "vocabeo_seed.jsonl"
+
+
+# --- goethe (CSV → SQLite) ---------------------------------------------------
+
+
+def _normalize_level_for_duplicates(
+    existing: Word | None, new_level: str | None
+) -> str | None:
+    """Keep the lowest (most basic) level when the same lemma+pos appears
+    across multiple Goethe levels (e.g. ``Haus`` in A1 + B1 → keep A1).
+    """
+    if existing is None or not existing.level:
+        return new_level
+    if new_level is None:
+        return existing.level
+    level_order = {"A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5}
+    existing_rank = level_order.get(existing.level, 99)
+    new_rank = level_order.get(new_level, 99)
+    return existing.level if existing_rank <= new_rank else new_level
+
+
+def upsert_goethe_word(session: Session, entry: GoetheEntry) -> bool:
+    """Insert or update a Word from a Goethe list entry.
+
+    Returns True on insert, False on update.
+    """
+    session.commit()
+    stmt = select(Word).where(
+        Word.lemma == entry.lemma,
+        Word.pos == entry.pos,
+    )
+    existing = session.execute(stmt).scalar_one_or_none()
+    if existing is None:
+        level = entry.level
+        session.add(
+            Word(
+                lemma=entry.lemma,
+                article=entry.article if entry.pos == "noun" else None,
+                pos=entry.pos,
+                level=level,
+                frequency=0,
+                source_ref=entry.source_ref,
+            )
+        )
+        session.commit()
+        return True
+    existing.level = _normalize_level_for_duplicates(existing, entry.level)
+    if entry.pos == "noun" and entry.article:
+        existing.article = entry.article
+    existing.source_ref = entry.source_ref
+    session.commit()
+    return False
+
+
+def seed_goethe(
+    entries: dict[str, list[GoetheEntry]],
+) -> dict[str, tuple[int, int]]:
+    """Idempotently upsert Goethe entries into Word. Returns ``{level: (inserted, skipped)}``."""
+    init_db()
+    result: dict[str, tuple[int, int]] = {}
+    for level, level_entries in entries.items():
+        inserted = skipped = 0
+        with SessionLocal() as session:
+            for entry in level_entries:
+                if upsert_goethe_word(session, entry):
+                    inserted += 1
+                else:
+                    skipped += 1
+        result[level] = (inserted, skipped)
+    return result
 
 
 # --- seed (jsonl → SQLite) -------------------------------------------------
@@ -275,6 +349,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help=f"path to vocabeo_seed.jsonl (default: {DEFAULT_SEED_PATH})",
     )
     sub = parser.add_subparsers(dest="cmd")
+    sub.add_parser("goethe", help="fetch & seed DWDS Goethe-Zertifikat word lists (A1, A2, B1)")
     p_scrape = sub.add_parser("scrape", help="drive Playwright over vocabeo /browse → JSONL")
     p_scrape.add_argument("--headed", action="store_true", help="show the browser window (debug)")
     sub.add_parser("seed", help="upsert JSONL into SQLite Word rows")
@@ -304,7 +379,15 @@ def main(argv: list[str] | None = None) -> None:
     cmd = args.cmd or "all"
     headless = not getattr(args, "headed", False)
 
-    if cmd == "scrape":
+    if cmd == "goethe":
+        entries = asyncio.run(fetch_all_goethe_lists())
+        result = seed_goethe(entries)
+        for level, (ins, skip) in result.items():
+            print(f"goethe {level}: {ins} inserted, {skip} skipped")
+        total_ins = sum(ins for _, (ins, _) in result.items())
+        total_skip = sum(skip for _, (_, skip) in result.items())
+        print(f"goethe total: {total_ins} inserted, {total_skip} skipped")
+    elif cmd == "scrape":
         _run_scrape(args.seed_path, headless=headless)
     elif cmd == "seed":
         _run_seed(args.seed_path)
