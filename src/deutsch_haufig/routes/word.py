@@ -65,6 +65,7 @@ def word_detail(
         "pos": word.pos,
         "level": word.level,
         "frequency": word.frequency,
+        "frequency_hits": word.frequency_hits,
     }
 
     sense_list = []

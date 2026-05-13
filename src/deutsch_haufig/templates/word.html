@@ -20,7 +20,7 @@
           {{ word.level }}
         </span>
         {% endif %}
-        <span class="text-xs text-stone-400">{{ _t("word.frequency_label") }} {{ word.frequency }}/5</span>
+        <span class="text-xs text-stone-400">{{ _t("word.frequency_label") }} {{ word.frequency }}/5{% if word.frequency_hits is not none %} · {{ "{:,}".format(word.frequency_hits) }}{% endif %}</span>
       </div>
     </div>
     {% if word.lemma %}

@@ -75,7 +75,7 @@
                     {{ word.level }}
                 </span>
                 {% endif %}
-                <span class="text-xs text-stone-400 font-medium">{{ word.frequency }}/5</span>
+                <span class="text-xs text-stone-400 font-medium"{% if word.frequency_hits is not none %} title="{{ word.frequency_hits }} hits"{% endif %}>{{ word.frequency }}/5</span>
                 <svg class="w-4 h-4 text-stone-300 group-hover:text-stone-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </div>
         </a>
