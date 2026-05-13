@@ -4,28 +4,30 @@ A web app to learn the most frequent German words for daily talk, with **German-
 
 ---
 
-## 1. Why vocabeo.com/browse is relevant
+## 1. Seed corpus: DWDS Goethe-Zertifikat word lists
 
-[vocabeo.com/browse](https://vocabeo.com/browse) exposes a curated, frequency-ranked German vocabulary list that is an excellent **seed corpus** for this project:
+The authoritative seed source is the official Goethe-Zertifikat word lists
+published by DWDS at: https://www.dwds.de/d/api#wb-list-goethe
 
-- **~6,260 words** ordered by **frequency** (1–5 buckets) — perfect for "most-used in daily talk".
-- Each entry already carries the metadata we need to bootstrap a learner DB:
-  - **Lemma** (with article for nouns, e.g. *der/die/das*).
-  - **Part of speech** (noun, verb, adj., adv., prep., conj., pron., interj., num.).
-  - **CEFR level** (A1 / A2 / B1 / none).
-  - **Frequency rank** (1–5).
-  - **Topical category** (Clothes & Fashion, Food & Drink, House & Home, Body Parts, Doctor & Medicine, Animals, Weather & Seasons, …).
-  - **Sample sentences** (German + English gloss).
-- It also exposes a built-in spaced-repetition / "Learn" view, which validates the UX we want to build.
+- A1: ~800 words
+- A2: ~1200 words
+- B1: ~1600 words
+- **Total: ~3600 words** — all officially curated by Goethe-Institut, all guaranteed to have DWDS dictionary entries.
 
-What it is **missing** for our goals:
+Each word arrives with:
+- **Lemma**, **POS** (Wortart), **Genus**, **Article** (for nouns)
+- **URL** to its DWDS dictionary page
+- **`nur_im_Plural`** marker for plural-only nouns
 
-1. Definitions are in **English**, not German. We want **monolingual** explanations (better for B1+ acquisition and to break the "translation reflex").
-2. Sentence examples are short, isolated and not always thematically grouped — we want **multiple examples per sense** and, on demand, a **short dialogue/paragraph** that situates the word.
-3. The SRS is closed-source — we want a transparent, configurable algorithm (FSRS / SM-2).
-4. No local-first ownership of the data and progress.
+The CSV is fetched from `https://www.dwds.de/api/lemma/goethe/{A1,A2,B1}.csv`.
 
-So vocabeo is an excellent **inspiration + seed source** (the wordlist itself, plus its metadata schema), and dwds.de is the right **authoritative German source** for monolingual definitions and corpus examples.
+**vocabeo.com/browse** was used in early M1 prototyping (~6200 words) but was replaced because:
+1. Many entries are noisy/low-quality.
+2. CEFR levels were missing for most words.
+3. Definitions were in **English**, not German.
+4. DWDS has no `vocabeo` entries in its dictionary, so enrichment had gaps.
+
+The old vocabeo scraper (`ingest/vocabeo.py`) is kept for reference but deprecated.
 
 ---
 
@@ -49,14 +51,15 @@ Word
   article         TEXT NULL     -- "der" / "die" / "das" for nouns
   pos             TEXT          -- noun | verb | adj | adv | prep | conj | pron | interj | num
   level           TEXT NULL     -- A1 | A2 | B1 | null
-  frequency       INTEGER       -- 1..5 (5 = most frequent)
+  frequency       INTEGER       -- 0 (Goethe words don't carry frequency; reserved for future)
   ipa             TEXT NULL
   plural          TEXT NULL     -- nouns only
-  source_ref      TEXT          -- e.g. "vocabeo:der" / "dwds:geben"
+  source_ref      TEXT          -- e.g. "dwds:goethe:A1" / "dwds:goethe:A2"
 
 Sense                            -- one Word can have multiple senses
   id              INTEGER PK
   word_id         FK -> Word
+  order           INTEGER       -- sense ordering from DWDS
   definition_de   TEXT          -- German monolingual definition (from dwds)
   register        TEXT NULL     -- ugs., geh., fachspr., …
   domain          TEXT NULL     -- e.g. "Medizin"
@@ -100,28 +103,39 @@ ReviewLog
 ## 4. Word ingestion pipeline
 
 ```
-[vocabeo.com/browse]                 [dwds.de]
-        |                                 |
-        v                                 v
-  scrape lemma+meta            fetch definition(s) + corpus examples
+[DWDS Goethe CSV API]              [dwds.de]
+        |                               |
+        v                                v
+  fetch A1/A2/B1 CSV           fetch Wörterbuch HTML
+        |                          + korpus API (JSON)
+        v                                |
+  parse rows                      extract senses + examples
         \                               /
          \                             /
           v                           v
-                seed_words.jsonl  ── normalize ──▶ SQLite (Word, Sense, Example)
-                                                 |
-                                                 v
-                                  optional: LLM generates dialogue (cached)
+                goethe_words  ── upsert ──▶ SQLite (Word, Sense, Example)
+                                                  |
+                                                  v
+                                   optional: LLM generates dialogue (cached)
 ```
 
 Steps:
 
-1. **Scrape vocabeo** (one-time) → `data/vocabeo_seed.jsonl` with `{lemma, article, pos, level, frequency, category}`. Respect robots/ToS — single low-rate run, cache on disk.
-2. **Enrich via dwds.de** for each lemma:
-   - Wörterbuch entry → 1..n `Sense` rows with `definition_de` (monolingual).
-   - DWDS-Korpus → up to N=5 short authentic example sentences per sense.
-3. **Normalize** part-of-speech, gender, plurals.
-4. **Optional LLM step** (only when the user clicks *"Show me a conversation"*): generate a 4–8-line dialogue using the word in the chosen sense, cache it in `Dialogue`.
+1. **Fetch DWDS Goethe CSVs** for A1, A2, B1 → `data/goethe/goethe_{level}.csv`.
+2. **Parse CSV rows** into `GoetheEntry(lemma, url, pos, level, article, genus, only_plural)`.
+3. **Upsert into `Word` table** deduped on `(lemma, pos)` — if the same word appears in multiple levels, keep the lowest (most basic) level.
+4. **Enrich via dwds.de** for each word:
+   - Fetch Wörterbuch page → 1..n `Sense` rows with `definition_de` (monolingual).
+   - Fetch DWDS-Korpus API → up to N=5 authentic example sentences per sense.
 5. Persist everything to **SQLite**. Re-runnable; idempotent on `(lemma, pos)`.
+
+### CLI
+
+```
+uv run ingest goethe        # fetch + seed all three Goethe levels
+uv run ingest enrich        # fetch DWDS defs + examples for words that lack them
+uv run ingest cached-enrich # same, from local cache only (no HTTP)
+```
 
 ---
 
@@ -155,15 +169,14 @@ Why FSRS over SM-2: better data-driven scheduling, proven open-source implementa
 
 ## 7. PoC scope (v0.1)
 
-The PoC must demonstrate the full loop end-to-end on a **small slice (~200 A1 words)**:
+The PoC must demonstrate the full loop end-to-end on the **~3600 Goethe words**:
 
-- [ ] Ingest 200 most frequent A1 words from vocabeo seed.
-- [ ] For each: pull German definition + ≥3 corpus examples from dwds.
-- [ ] Browse page: filter by level / category / pos / frequency.
-- [ ] Word detail page: German definition, examples, "Show conversation" button (LLM, cached).
-- [ ] Learn page: FSRS-driven review queue with 4-button rating, keyboard shortcuts (1/2/3/4).
-- [ ] Single local user (no auth) — settings in a JSON blob.
-- [ ] All data in `app.db` (SQLite), seed script reproducible.
+- [x] `uv run ingest goethe` fetches and seeds A1 + A2 + B1 words from DWDS.
+- [x] For each: pull German definition + ≥3 corpus examples from dwds.
+- [x] Browse page: filter by level / pos.
+- [x] Word detail page: German definition, examples, "Show conversation" button (LLM, cached).
+- [x] Learn page: FSRS-driven review queue with 4-button rating, keyboard shortcuts (1/2/3/4).
+- [x] All data in `app.db` (SQLite), seed script reproducible.
 
 ---
 
@@ -176,8 +189,9 @@ deutsch-haufig/
 ├── pyproject.toml
 ├── app.db                       # gitignored
 ├── data/
-│   ├── vocabeo_seed.jsonl
-│   └── dwds_cache/
+│   ├── vocabeo_seed.jsonl       # deprecated, kept for reference
+│   ├── goethe/                  # cached Goethe CSV files
+│   └── dwds_cache/              # cached Wörterbuch HTML + korpus JSON
 ├── src/deutsch_haufig/
 │   ├── __init__.py
 │   ├── main.py                  # FastAPI entrypoint
@@ -190,9 +204,10 @@ deutsch-haufig/
 │   │   ├── fsrs_scheduler.py
 │   │   └── sm2_scheduler.py
 │   ├── ingest/
-│   │   ├── vocabeo.py           # scraper
+│   │   ├── goethe.py            # DWDS Goethe CSV fetcher + parser
+│   │   ├── vocabeo.py           # deprecated vocabeo scraper
 │   │   ├── dwds.py              # definition + examples fetcher
-│   │   └── pipeline.py          # CLI: `python -m deutsch_haufig.ingest`
+│   │   └── pipeline.py          # CLI: `uv run ingest`
 │   ├── dialogue/
 │   │   ├── provider.py          # interface
 │   │   └── openai_provider.py
@@ -203,9 +218,11 @@ deutsch-haufig/
 │   │   └── api.py
 │   └── templates/               # Jinja2 + HTMX partials
 └── tests/
+    ├── test_ingest_goethe.py    # M1-DWDS: Goethe CSV parser
+    ├── test_ingest_vocabeo.py   # deprecated vocabeo parser tests
+    ├── test_ingest_dwds.py      # M2: DWDS HTML parser
     ├── test_scheduler.py
-    ├── test_ingest_dwds.py
-    └── test_routes.py
+    └── test_*.py
 ```
 
 ---
@@ -214,8 +231,8 @@ deutsch-haufig/
 
 | Risk | Mitigation |
 |---|---|
-| vocabeo / dwds ToS or rate limits | Single low-rate ingest, cache on disk, document attribution, keep raw seed file out of redistribution. |
-| dwds HTML changes | Isolate parser in `ingest/dwds.py`, snapshot a fixture per word for tests. |
+| DWDS Goethe CSV format changes | Isolate parser in `ingest/goethe.py`, snapshot CSV fixtures for tests. |
+| DWDS HTML changes | Isolate parser in `ingest/dwds.py`, snapshot a fixture per word for tests. |
 | LLM cost / hallucination for dialogues | Generate **on demand only**, cache in DB, mark `generated_by`, allow user to regenerate or report. |
 | FSRS misuse | Use the reference lib; don't reinvent; cover with tests for: new card → learning → review transitions. |
 | Scope creep | Hard cut at v0.1 (see §7); everything else lives in ROADMAP.md. |
@@ -224,8 +241,9 @@ deutsch-haufig/
 
 ## 10. Definition of done for the PoC
 
-1. `uv run ingest` populates `app.db` with ≥200 enriched A1 words.
-2. `uv run web` starts the app at `http://localhost:8000`.
-3. From the browse page I can pick a word, read its **German** definition + ≥3 examples, and request a **dialogue**.
-4. From `/learn` I can review at least 20 cards in a row; ratings persist; due dates change in line with FSRS.
-5. `pytest` is green; basic CI on push.
+1. `uv run ingest goethe` populates `app.db` with ~3600 Goethe words across A1-A2-B1.
+2. `uv run ingest enrich` fetches definitions + examples for all of them.
+3. `uv run web` starts the app at `http://localhost:8000`.
+4. From the browse page I can pick a word, read its **German** definition + ≥3 examples, and request a **dialogue**.
+5. From `/learn` I can review cards by level; ratings persist; due dates change in line with FSRS.
+6. `pytest` is green; basic CI on push.
