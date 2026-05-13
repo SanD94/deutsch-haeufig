@@ -40,6 +40,16 @@ def _cache_path(lemma: str, pos: str) -> Path:
     return CACHE_DIR / f"{lemma}_{pos}_{key}.html"
 
 
+def _corpus_cache_path(lemma: str) -> Path:
+    """Path for caching a DWDS corpus API response for a given lemma."""
+    return CACHE_DIR / "corpus" / f"{lemma}.json"
+
+
+def _ipa_cache_path(lemma: str) -> Path:
+    """Path for caching a DWDS IPA API response for a given lemma."""
+    return CACHE_DIR / "ipa" / f"{lemma}.json"
+
+
 # --- entry shapes ----------------------------------------------------------
 
 
@@ -213,6 +223,168 @@ def parse_entry(lemma: str, pos: str, html: str) -> DWDSEntry:
         senses=tuple(senses),
         examples={k: tuple(v) for k, v in examples_by_sense.items()},
     )
+
+
+# --- corpus API (M2a) --------------------------------------------------------
+
+
+CORPUS_BASE = "https://www.dwds.de/r"
+IPA_BASE = "https://www.dwds.de/api/ipa"
+
+
+def _reconstruct_sentence(ctx: list) -> str:
+    """Reconstruct a sentence from a DWDS korpus API ``ctx_`` array.
+
+    The ``ctx_`` field is a 3-element list: ``[prefix, tokens, suffix]``
+    where ``tokens`` is an array of ``{"ws": "0"|"1", "w": str, "hl_": 0|1}``
+    objects. ``ws=1`` means a space precedes the token; ``ws=0`` means no space.
+    """
+    parts: list[str] = []
+    for tok in ctx[1] if len(ctx) > 1 else ctx:
+        if not isinstance(tok, dict):
+            continue
+        if tok.get("ws") == "1" and parts:
+            parts.append(" ")
+        parts.append(tok["w"])
+    return "".join(parts).strip()
+
+
+def parse_corpus_response(data: list, *, limit: int = 5) -> list[DWDSExample]:
+    """Parse a DWDS korpus API JSON response into example objects.
+
+    Pure function — no I/O.
+
+    Each result in the JSON array contains a ``ctx_`` array and
+    a ``bibl_string`` for attribution.
+    """
+    examples: list[DWDSExample] = []
+    for item in data[:limit]:
+        ctx = item.get("ctx_")
+        if not ctx or not isinstance(ctx, list) or len(ctx) < 2:
+            continue
+        sentence = _reconstruct_sentence(ctx)
+        if not sentence or len(sentence) < 15:
+            continue
+        bibl = item.get("bibl_string", "dwds-korpus")
+        examples.append(DWDSExample(text_de=sentence, source=bibl))
+    return examples
+
+
+async def fetch_corpus_examples(
+    lemma: str,
+    *,
+    limit: int = 5,
+    use_cache: bool = True,
+    force_fetch: bool = False,
+) -> list[DWDSExample]:
+    """Fetch corpus examples for a lemma from the DWDS korpus API.
+
+    Caches responses to ``data/dwds_cache/corpus/{lemma}.json``.
+    Falls back to the ``dwdsxl`` corpus if ``kern`` returns fewer than 3 results.
+    """
+    cache_path = _corpus_cache_path(lemma)
+
+    if use_cache and not force_fetch and cache_path.exists():
+        import json
+        data = json.loads(cache_path.read_text(encoding="utf-8"))
+        return parse_corpus_response(data, limit=limit)
+
+    examples = await _fetch_corpus_for_corpus(lemma, "kern", limit=limit)
+
+    if len(examples) < min(limit, 3):
+        supplemental = await _fetch_corpus_for_corpus(lemma, "dwdsxl", limit=limit - len(examples))
+        existing_texts = {e.text_de for e in examples}
+        for ex in supplemental:
+            if ex.text_de not in existing_texts:
+                examples.append(ex)
+                existing_texts.add(ex.text_de)
+
+    return examples
+
+
+async def _fetch_corpus_for_corpus(
+    lemma: str,
+    corpus: str,
+    *,
+    limit: int = 5,
+) -> list[DWDSExample]:
+    """Fetch corpus examples from a specific DWDS corpus."""
+    import json
+
+    url = f"{CORPUS_BASE}/?q={lemma}&format=full&view=json&limit={limit}&corpus={corpus}"
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(30.0, connect=10.0),
+        follow_redirects=True,
+    ) as client:
+        response = await client.get(url)
+        if response.status_code != 200:
+            logger.warning("[corpus:%s] %s returned %d", lemma, corpus, response.status_code)
+            return []
+        data = response.json()
+
+    if not isinstance(data, list):
+        return []
+
+    examples = parse_corpus_response(data, limit=limit)
+
+    cache_path = _corpus_cache_path(lemma)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    return examples
+
+
+# --- IPA API (M2b) -----------------------------------------------------------
+
+
+def parse_ipa_response(data: list) -> str | None:
+    """Parse IPA JSON response from the DWDS IPA API.
+
+    Pure function — no I/O.
+    The API returns ``[{"ipa": "...", "status": "..."}]``.
+    """
+    if not data or not isinstance(data, list):
+        return None
+    return data[0].get("ipa") or None
+
+
+async def fetch_ipa(
+    lemma: str,
+    *,
+    use_cache: bool = True,
+    force_fetch: bool = False,
+) -> str | None:
+    """Fetch IPA pronunciation for a lemma from the DWDS IPA API.
+
+    Returns the IPA string or None if not found.
+    Caches responses to ``data/dwds_cache/ipa/{lemma}.json``.
+    """
+    import json
+
+    cache_path = _ipa_cache_path(lemma)
+
+    if use_cache and not force_fetch and cache_path.exists():
+        data = json.loads(cache_path.read_text(encoding="utf-8"))
+        return parse_ipa_response(data)
+
+    url = f"{IPA_BASE}/?q={lemma}"
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(30.0, connect=10.0),
+        follow_redirects=True,
+    ) as client:
+        response = await client.get(url)
+        if response.status_code != 200:
+            logger.warning("[ipa:%s] returned %d", lemma, response.status_code)
+            return None
+        data = response.json()
+
+    if not isinstance(data, list):
+        return None
+
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    return parse_ipa_response(data)
 
 
 # --- batch processing ------------------------------------------------------

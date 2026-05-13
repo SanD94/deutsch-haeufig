@@ -1,0 +1,101 @@
+[
+  {
+    "no_ws": 0,
+    "bibl": "degenhardt_tage_1999",
+    "matches": [{"hl_": 1, "ws": "1", "w": "Haus"}],
+    "textclass": "Belletristik:Roman",
+    "collection": "kern",
+    "ctx_": [
+      "",
+      [
+        {"ws": "1", "hl_": 0, "w": "Nichts"},
+        {"hl_": 0, "ws": "1", "w": "Weltbewegendes"},
+        {"ws": "1", "w": "geschah", "hl_": 0},
+        {"ws": "1", "hl_": 0, "w": "vor"},
+        {"ws": "1", "w": "dem", "hl_": 0},
+        {"hl_": 1, "ws": "1", "w": "Haus"},
+        {"w": "in", "ws": "1", "hl_": 0},
+        {"ws": "1", "w": "Moskau", "hl_": 0},
+        {"ws": "0", "hl_": 0, "w": "."}
+      ],
+      ""
+    ],
+    "bibl_string": "Degenhardt, Franz Josef: Für ewig und drei Tage, Berlin: Aufbau-Verl. 1999, S. 10",
+    "kwic": {
+      "rs": [{"hl_": 0, "w": "in", "ws": 1}],
+      "kw": [{"ws": "1", "hl_": 1, "w": "Haus"}],
+      "ls": [{"w": "dem", "hl_": 0, "ws": "1"}]
+    },
+    "meta_": {
+      "title": "Für ewig und drei Tage",
+      "author": "Degenhardt, Franz Josef",
+      "collection": "kern",
+      "textClass": "Belletristik:Roman",
+      "bibl": "Degenhardt, Franz Josef: Für ewig und drei Tage, Berlin: Aufbau-Verl. 1999, S. 10"
+    }
+  },
+  {
+    "no_ws": 0,
+    "bibl": "degenhardt_tage_1999",
+    "matches": [{"hl_": 1, "ws": "1", "w": "Haus"}],
+    "textclass": "Belletristik:Roman",
+    "collection": "kern",
+    "ctx_": [
+      "",
+      [
+        {"ws": "1", "hl_": 0, "w": "Vor"},
+        {"ws": "1", "w": "dem", "hl_": 0},
+        {"hl_": 1, "ws": "1", "w": "Haus"},
+        {"ws": "1", "hl_": 0, "w": "stand"},
+        {"ws": "1", "w": "ein", "hl_": 0},
+        {"ws": "1", "w": "großer", "hl_": 0},
+        {"ws": "1", "w": "Baum", "hl_": 0},
+        {"ws": "0", "hl_": 0, "w": "."}
+      ],
+      ""
+    ],
+    "bibl_string": "Degenhardt, Franz Josef: Für ewig und drei Tage, Berlin: Aufbau-Verl. 1999, S. 12",
+    "kwic": {
+      "rs": [{"hl_": 0, "w": "stand", "ws": 1}],
+      "kw": [{"ws": "1", "hl_": 1, "w": "Haus"}],
+      "ls": [{"w": "dem", "hl_": 0, "ws": "1"}]
+    },
+    "meta_": {
+      "title": "Für ewig und drei Tage",
+      "author": "Degenhardt, Franz Josef",
+      "collection": "kern",
+      "textClass": "Belletristik:Roman",
+      "bibl": "Degenhardt, Franz Josef: Für ewig und drei Tage, Berlin: Aufbau-Verl. 1999, S. 12"
+    }
+  },
+  {
+    "no_ws": 0,
+    "bibl": "degenhardt_tage_1999",
+    "matches": [{"hl_": 1, "ws": "1", "w": "Haus"}],
+    "textclass": "Belletristik:Roman",
+    "collection": "kern",
+    "ctx_": [
+      "",
+      [
+        {"ws": "1", "hl_": 0, "w": "Er"},
+        {"ws": "1", "hl_": 0, "w": "betrat"},
+        {"ws": "1", "w": "das", "hl_": 0},
+        {"hl_": 1, "ws": "1", "w": "Haus"},
+        {"ws": "1", "hl_": 0, "w": "durch"},
+        {"ws": "1", "w": "die", "hl_": 0},
+        {"ws": "1", "w": "Hintertür", "hl_": 0},
+        {"ws": "0", "hl_": 0, "w": "."}
+      ],
+      ""
+    ],
+    "bibl_string": "Degenhardt, Franz Josef: Für ewig und drei Tage, Berlin: Aufbau-Verl. 1999, S. 15",
+    "kwic": {},
+    "meta_": {
+      "title": "Für ewig und drei Tage",
+      "author": "Degenhardt, Franz Josef",
+      "collection": "kern",
+      "textClass": "Belletristik:Roman",
+      "bibl": "Degenhardt, Franz Josef: Für ewig und drei Tage, Berlin: Aufbau-Verl. 1999, S. 15"
+    }
+  }
+]

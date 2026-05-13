@@ -1,0 +1,60 @@
+[
+  {
+    "no_ws": 0,
+    "bibl": "mann_heute_2008",
+    "matches": [{"hl_": 1, "ws": "1", "w": "geben"}],
+    "textclass": "Belletristik:Roman",
+    "collection": "kern",
+    "ctx_": [
+      "",
+      [
+        {"ws": "1", "hl_": 0, "w": "Kannst"},
+        {"ws": "1", "w": "du", "hl_": 0},
+        {"ws": "1", "w": "mir", "hl_": 0},
+        {"ws": "1", "w": "das", "hl_": 0},
+        {"ws": "1", "w": "Buch", "hl_": 0},
+        {"hl_": 1, "ws": "1", "w": "geben"},
+        {"ws": "0", "hl_": 0, "w": "?"}
+      ],
+      ""
+    ],
+    "bibl_string": "Mann, Thomas: Der Zauberberg, Berlin: S. Fischer 1924",
+    "kwic": {},
+    "meta_": {
+      "title": "Der Zauberberg",
+      "author": "Mann, Thomas",
+      "collection": "kern",
+      "textClass": "Belletristik:Roman",
+      "bibl": "Mann, Thomas: Der Zauberberg, Berlin: S. Fischer 1924"
+    }
+  },
+  {
+    "no_ws": 0,
+    "bibl": "mann_heute_2008",
+    "matches": [{"hl_": 1, "ws": "1", "w": "geben"}],
+    "textclass": "Belletristik:Roman",
+    "collection": "kern",
+    "ctx_": [
+      "",
+      [
+        {"ws": "1", "hl_": 0, "w": "Es"},
+        {"ws": "1", "w": "wird", "hl_": 0},
+        {"ws": "1", "w": "schon", "hl_": 0},
+        {"ws": "1", "w": "wieder", "hl_": 0},
+        {"ws": "1", "w": "Sonne", "hl_": 0},
+        {"hl_": 1, "ws": "1", "w": "geben"},
+        {"ws": "0", "hl_": 0, "w": "."}
+      ],
+      ""
+    ],
+    "bibl_string": "Mann, Thomas: Der Zauberberg, Berlin: S. Fischer 1924",
+    "kwic": {},
+    "meta_": {
+      "title": "Der Zauberberg",
+      "author": "Mann, Thomas",
+      "collection": "kern",
+      "textClass": "Belletristik:Roman",
+      "bibl": "Mann, Thomas: Der Zauberberg, Berlin: S. Fischer 1924"
+    }
+  }
+]

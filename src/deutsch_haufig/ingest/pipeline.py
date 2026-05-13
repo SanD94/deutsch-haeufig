@@ -69,7 +69,7 @@ def upsert_goethe_word(session: Session, entry: GoetheEntry) -> bool:
     stmt = select(Word).where(
         Word.lemma == entry.lemma,
         Word.pos == entry.pos,
-    )
+    ).limit(1)
     existing = session.execute(stmt).scalar_one_or_none()
     if existing is None:
         level = entry.level
@@ -169,6 +169,11 @@ def seed_words(entries: list[VocabeoEntry]) -> tuple[int, int]:
 # --- enrich (DWDS definitions + examples) -------------------------------
 
 
+def _has_definitions(session: Session, word_id: int) -> bool:
+    senses = session.execute(select(Sense).where(Sense.word_id == word_id)).scalars().all()
+    return any(s.definition_de for s in senses)
+
+
 def upsert_sense_and_examples(
     session: Session,
     word_id: int,
@@ -219,8 +224,18 @@ def upsert_sense_and_examples(
     return count
 
 
-async def enrich_words(limit: int | None = None) -> tuple[int, int]:
+async def enrich_words(
+    limit: int | None = None,
+    *,
+    corpus_api: bool = False,
+    with_ipa: bool = False,
+) -> tuple[int, int]:
     """Fetch DWDS for words without definitions, upsert senses + examples.
+
+    When ``corpus_api=True``, also fetch corpus examples via the DWDS korpus API
+    for each word (replacing HTML-embedded examples).
+
+    When ``with_ipa=True``, also fetch IPA pronunciation for each word.
 
     Returns (enriched_count, failed_count).
     """
@@ -233,8 +248,7 @@ async def enrich_words(limit: int | None = None) -> tuple[int, int]:
     async def word_iter():
         for w in words:
             with SessionLocal() as sess:
-                senses = sess.execute(select(Sense).where(Sense.word_id == w.id)).scalars().all()
-            has_def = any(s.definition_de for s in senses)
+                has_def = _has_definitions(sess, w.id)
             if not has_def:
                 yield w.id, w.lemma, w.pos
 
@@ -257,7 +271,64 @@ async def enrich_words(limit: int | None = None) -> tuple[int, int]:
         if limit and enriched >= limit:
             break
 
+    if corpus_api:
+        c_ok, c_fail = await _enrich_corpus_examples(words)
+        enriched += c_ok
+        failed += c_fail
+
+    if with_ipa:
+        ipa_ok, ipa_fail = await _enrich_ipa(words)
+        enriched += ipa_ok
+        failed += ipa_fail
+
     return enriched, failed
+
+
+async def _enrich_corpus_examples(words: list) -> tuple[int, int]:
+    """Fetch corpus API examples for all words and attach to senses."""
+    from deutsch_haufig.ingest.dwds import fetch_corpus_examples
+
+    ok = fail = 0
+    for w in words:
+        examples = await fetch_corpus_examples(w.lemma)
+        if not examples:
+            fail += 1
+            continue
+        with SessionLocal() as session:
+            senses = session.execute(
+                select(Sense).where(Sense.word_id == w.id).order_by(Sense.order)
+            ).scalars().all()
+            for sense in senses[:1]:
+                for ex_data in examples:
+                    ex = Example(
+                        sense_id=sense.id,
+                        text_de=ex_data.text_de,
+                        source=ex_data.source,
+                        translation_en=ex_data.translation_en,
+                    )
+                    session.add(ex)
+            session.commit()
+            ok += 1
+    return ok, fail
+
+
+async def _enrich_ipa(words: list) -> tuple[int, int]:
+    """Fetch IPA pronunciation for all words."""
+    from deutsch_haufig.ingest.dwds import fetch_ipa
+
+    ok = fail = 0
+    for w in words:
+        ipa = await fetch_ipa(w.lemma)
+        if not ipa:
+            fail += 1
+            continue
+        with SessionLocal() as session:
+            word = session.get(Word, w.id)
+            if word:
+                word.ipa = ipa
+                session.commit()
+                ok += 1
+    return ok, fail
 
 
 def enrich_all_cached() -> tuple[int, int]:
@@ -361,6 +432,16 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="maximum words to process (default: all without definitions)",
     )
+    p_enrich.add_argument(
+        "--corpus-api",
+        action="store_true",
+        help="fetch corpus examples via DWDS korpus API (replaces HTML-embedded)",
+    )
+    p_enrich.add_argument(
+        "--with-ipa",
+        action="store_true",
+        help="fetch IPA pronunciation for each word",
+    )
     p_all = sub.add_parser("all", help="scrape then seed then enrich (default)")
     p_all.add_argument("--headed", action="store_true", help="show the browser window (debug)")
     p_all.add_argument(
@@ -396,7 +477,9 @@ def main(argv: list[str] | None = None) -> None:
         print(f"cached-enrich: {enriched} enriched, {failed} failed")
     elif cmd == "enrich":
         limit = getattr(args, "limit", None)
-        enriched, failed = asyncio.run(enrich_words(limit=limit))
+        enriched, failed = asyncio.run(
+            enrich_words(limit, corpus_api=getattr(args, "corpus_api", False), with_ipa=getattr(args, "with_ipa", False))
+        )
         print(f"enrich: {enriched} enriched, {failed} failed (no definition)")
     elif cmd == "all":
         _run_scrape(args.seed_path, headless=headless)
