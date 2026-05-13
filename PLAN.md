@@ -21,13 +21,8 @@ Each word arrives with:
 
 The CSV is fetched from `https://www.dwds.de/api/lemma/goethe/{A1,A2,B1}.csv`.
 
-**vocabeo.com/browse** was used in early M1 prototyping (~6200 words) but was replaced because:
-1. Many entries are noisy/low-quality.
-2. CEFR levels were missing for most words.
-3. Definitions were in **English**, not German.
-4. DWDS has no `vocabeo` entries in its dictionary, so enrichment had gaps.
-
-The old vocabeo scraper (`ingest/vocabeo.py`) is kept for reference but deprecated.
+The old vocabeo.com/browse scraper has been removed. All words come from the
+official DWDS Goethe-Zertifikat lists.
 
 ### B2 extension: project-defined common-word layer
 
@@ -300,7 +295,7 @@ deutsch-haufig/
 │   │   ├── *.html               # cached /wb/{lemma} pages (HTML scrape for definitions)
 │   │   ├── corpus/*.json        # cached korpus API responses (JSON)
 │   │   └── ipa/*.json           # cached IPA API responses (JSON)
-│   └── vocabeo_seed.jsonl       # deprecated, kept for reference
+│   └── vocabeo_seed.jsonl       # (deprecated, may be present from old runs)
 ├── src/deutsch_haufig/
 │   ├── __init__.py
 │   ├── main.py                  # FastAPI entrypoint
@@ -314,7 +309,6 @@ deutsch-haufig/
 │   │   └── sm2_scheduler.py
 │   ├── ingest/
 │   │   ├── goethe.py            # DWDS Goethe CSV fetcher + parser (API)
-│   │   ├── vocabeo.py           # deprecated vocabeo scraper
 │   │   ├── dwds.py              # definition HTML parser + API fetchers
 │   │   └── pipeline.py          # CLI: `uv run ingest`
 │   ├── dialogue/
@@ -328,8 +322,10 @@ deutsch-haufig/
 │   └── templates/               # Jinja2 + HTMX partials
 └── tests/
     ├── test_ingest_goethe.py    # Goethe CSV parser tests
-    ├── test_ingest_vocabeo.py   # deprecated vocabeo parser tests
-    ├── test_ingest_dwds.py      # DWDS HTML parser + API tests
+    ├── test_ingest_dwds.py      # DWDS HTML parser tests
+    ├── test_ingest_dwds_corpus.py # DWDS korpus API + IPA tests
+    ├── test_ingest_pipeline.py  # pipeline CLI tests
+    ├── test_ingest_pipeline.py  # pipeline CLI tests
     ├── test_scheduler.py
     └── test_*.py
 ```

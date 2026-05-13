@@ -270,6 +270,7 @@ def word_api(
         pos=word.pos,
         level=word.level,
         frequency=word.frequency,
+        frequency_hits=word.frequency_hits,
         senses=[
             {
                 "id": s.id,

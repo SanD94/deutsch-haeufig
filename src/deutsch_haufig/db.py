@@ -27,6 +27,10 @@ def _apply_migrations(engine) -> None:
     if "created_at" not in existing_cols:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE review_cards ADD COLUMN created_at TIMESTAMP"))
+    word_cols = {c["name"] for c in inspector.get_columns("words")}
+    if "frequency_hits" not in word_cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE words ADD COLUMN frequency_hits INTEGER"))
 
 
 def get_session() -> Iterator[Session]:

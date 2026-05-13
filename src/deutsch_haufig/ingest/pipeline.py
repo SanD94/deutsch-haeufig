@@ -1,12 +1,11 @@
-"""Ingest CLI for M1/M2.
+"""Ingest CLI for M1-DWDS seed + M2 enrichment.
 
 Subcommands:
 
-  scrape   Drive Playwright over vocabeo.com/browse and write
-           ``data/vocabeo_seed.jsonl``.
-  seed    Upsert the JSONL seed into the SQLite ``words`` table.
-  enrich  Fetch DWDS definitions and examples and upsert to senses + examples.
-  all     scrape + seed + enrich (the default).
+  goethe  Fetch and seed DWDS Goethe-Zertifikat word lists (A1, A2, B1)
+          (default when no subcommand is given).
+  enrich  Fetch DWDS definitions + examples + optional IPA.
+  cached-enrich  Enrich from local DWDS cache only (no HTTP).
 """
 
 from __future__ import annotations
@@ -14,12 +13,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
-from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from deutsch_haufig.config import settings
 from deutsch_haufig.db import SessionLocal, init_db
 from deutsch_haufig.ingest.dwds import (
     DWDSEntry,
@@ -28,17 +25,9 @@ from deutsch_haufig.ingest.goethe import (
     GoetheEntry,
     fetch_all_goethe_lists,
 )
-from deutsch_haufig.ingest.vocabeo import (
-    VocabeoEntry,
-    read_jsonl,
-    scrape_browse_list,
-    write_jsonl,
-)
 from deutsch_haufig.models import Example, Sense, Word
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_SEED_PATH = settings.data_dir / "vocabeo_seed.jsonl"
 
 
 # --- goethe (CSV → SQLite) ---------------------------------------------------
@@ -47,9 +36,6 @@ DEFAULT_SEED_PATH = settings.data_dir / "vocabeo_seed.jsonl"
 def _normalize_level_for_duplicates(
     existing: Word | None, new_level: str | None
 ) -> str | None:
-    """Keep the lowest (most basic) level when the same lemma+pos appears
-    across multiple Goethe levels (e.g. ``Haus`` in A1 + B1 → keep A1).
-    """
     if existing is None or not existing.level:
         return new_level
     if new_level is None:
@@ -88,15 +74,25 @@ def upsert_goethe_word(session: Session, entry: GoetheEntry) -> bool:
     existing.level = _normalize_level_for_duplicates(existing, entry.level)
     if entry.pos == "noun" and entry.article:
         existing.article = entry.article
-    existing.source_ref = entry.source_ref
+    # Only update source_ref when the entry's level is the same as the
+    # existing level, or when the existing level was null. This prevents
+    # overwriting a lower-level source_ref (e.g. A1) with a higher one (B1).
+    if existing.level == entry.level or entry.level is None:
+        existing.source_ref = entry.source_ref
     session.commit()
     return False
 
 
 def seed_goethe(
     entries: dict[str, list[GoetheEntry]],
+    *,
+    with_frequency: bool = False,
 ) -> dict[str, tuple[int, int]]:
-    """Idempotently upsert Goethe entries into Word. Returns ``{level: (inserted, skipped)}``."""
+    """Idempotently upsert Goethe entries into Word. Returns ``{level: (inserted, skipped)}``.
+
+    When ``with_frequency=True``, fetches frequency data from DWDS for each
+    newly inserted word and sets ``frequency`` + ``frequency_hits``.
+    """
     init_db()
     result: dict[str, tuple[int, int]] = {}
     for level, level_entries in entries.items():
@@ -108,62 +104,37 @@ def seed_goethe(
                 else:
                     skipped += 1
         result[level] = (inserted, skipped)
+    if with_frequency:
+        import asyncio
+
+        from deutsch_haufig.ingest.dwds import fetch_frequency
+
+        all_new: list[Word] = []
+        with SessionLocal() as session:
+            for _level, level_entries in entries.items():
+                for entry in level_entries:
+                    stmt = select(Word).where(
+                        Word.lemma == entry.lemma,
+                        Word.pos == entry.pos,
+                    ).limit(1)
+                    w = session.execute(stmt).scalar_one_or_none()
+                    if w:
+                        all_new.append(w)
+
+        async def _fetch_all():
+            for w in all_new:
+                freq_data = await fetch_frequency(w.lemma)
+                if freq_data is None:
+                    continue
+                with SessionLocal() as session:
+                    word = session.get(Word, w.id)
+                    if word:
+                        word.frequency = freq_data.frequency
+                        word.frequency_hits = freq_data.hits
+                        session.commit()
+
+        asyncio.run(_fetch_all())
     return result
-
-
-# --- seed (jsonl → SQLite) -------------------------------------------------
-
-
-def upsert_word(session: Session, entry: VocabeoEntry) -> bool:
-    """Insert or update a Word by ``(lemma, pos, en_gloss)``.
-
-    Returns True on insert, False on update. The (lemma, pos, en_gloss)
-    triple matches the dedup key used by the scraper, so homographs
-    like ``sein/verb`` and ``sein/pron`` end up as separate rows.
-    """
-    stmt = select(Word).where(
-        Word.lemma == entry.lemma,
-        Word.pos == entry.pos,
-        Word.source_ref == entry.source_ref,
-    )
-    existing = session.execute(stmt).scalar_one_or_none()
-    if existing is None:
-        # Fall back to a (lemma, pos) match for stable upserts when the
-        # source_ref drifts between scrapes (the row index can shift).
-        existing = session.execute(
-            select(Word).where(Word.lemma == entry.lemma, Word.pos == entry.pos)
-        ).scalar_one_or_none()
-    if existing is None:
-        session.add(
-            Word(
-                lemma=entry.lemma,
-                article=entry.article,
-                pos=entry.pos,
-                level=entry.level,
-                frequency=entry.frequency or 0,
-                source_ref=entry.source_ref,
-            )
-        )
-        return True
-    existing.article = entry.article or existing.article
-    existing.level = existing.level or entry.level
-    existing.frequency = max(existing.frequency or 0, entry.frequency or 0)
-    existing.source_ref = entry.source_ref or existing.source_ref
-    return False
-
-
-def seed_words(entries: list[VocabeoEntry]) -> tuple[int, int]:
-    """Idempotently upsert ``entries`` into Word. Returns ``(inserted, updated)``."""
-    init_db()
-    inserted = updated = 0
-    with SessionLocal() as session:
-        for entry in entries:
-            if upsert_word(session, entry):
-                inserted += 1
-            else:
-                updated += 1
-        session.commit()
-    return inserted, updated
 
 
 # --- enrich (DWDS definitions + examples) -------------------------------
@@ -229,6 +200,7 @@ async def enrich_words(
     *,
     corpus_api: bool = False,
     with_ipa: bool = False,
+    with_frequency: bool = False,
 ) -> tuple[int, int]:
     """Fetch DWDS for words without definitions, upsert senses + examples.
 
@@ -281,11 +253,15 @@ async def enrich_words(
         enriched += ipa_ok
         failed += ipa_fail
 
+    if with_frequency:
+        freq_ok, freq_fail = await _enrich_frequency(words)
+        enriched += freq_ok
+        failed += freq_fail
+
     return enriched, failed
 
 
 async def _enrich_corpus_examples(words: list) -> tuple[int, int]:
-    """Fetch corpus API examples for all words and attach to senses."""
     from deutsch_haufig.ingest.dwds import fetch_corpus_examples
 
     ok = fail = 0
@@ -313,7 +289,6 @@ async def _enrich_corpus_examples(words: list) -> tuple[int, int]:
 
 
 async def _enrich_ipa(words: list) -> tuple[int, int]:
-    """Fetch IPA pronunciation for all words."""
     from deutsch_haufig.ingest.dwds import fetch_ipa
 
     ok = fail = 0
@@ -326,6 +301,25 @@ async def _enrich_ipa(words: list) -> tuple[int, int]:
             word = session.get(Word, w.id)
             if word:
                 word.ipa = ipa
+                session.commit()
+                ok += 1
+    return ok, fail
+
+
+async def _enrich_frequency(words: list) -> tuple[int, int]:
+    from deutsch_haufig.ingest.dwds import fetch_frequency
+
+    ok = fail = 0
+    for w in words:
+        freq_data = await fetch_frequency(w.lemma)
+        if freq_data is None:
+            fail += 1
+            continue
+        with SessionLocal() as session:
+            word = session.get(Word, w.id)
+            if word:
+                word.frequency = freq_data.frequency
+                word.frequency_hits = freq_data.hits
                 session.commit()
                 ok += 1
     return ok, fail
@@ -392,38 +386,18 @@ def enrich_all_cached() -> tuple[int, int]:
 # --- CLI -------------------------------------------------------------------
 
 
-def _run_scrape(seed_path: Path, *, headless: bool = True) -> int:
-    entries = asyncio.run(scrape_browse_list(headless=headless))
-    written = write_jsonl(entries, seed_path)
-    print(f"scrape: wrote {written} entries → {seed_path}")
-    return written
-
-
-def _run_seed(seed_path: Path) -> tuple[int, int]:
-    if not seed_path.exists():
-        raise SystemExit(f"seed file not found: {seed_path}\n  → run `uv run ingest scrape` first.")
-    entries = read_jsonl(seed_path)
-    inserted, updated = seed_words(entries)
-    print(
-        f"seed: {inserted} inserted, {updated} updated "
-        f"({inserted + updated} total) → {settings.database_url}"
-    )
-    return inserted, updated
-
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="ingest", description=__doc__)
-    parser.add_argument(
-        "--seed-path",
-        type=Path,
-        default=DEFAULT_SEED_PATH,
-        help=f"path to vocabeo_seed.jsonl (default: {DEFAULT_SEED_PATH})",
-    )
     sub = parser.add_subparsers(dest="cmd")
-    sub.add_parser("goethe", help="fetch & seed DWDS Goethe-Zertifikat word lists (A1, A2, B1)")
-    p_scrape = sub.add_parser("scrape", help="drive Playwright over vocabeo /browse → JSONL")
-    p_scrape.add_argument("--headed", action="store_true", help="show the browser window (debug)")
-    sub.add_parser("seed", help="upsert JSONL into SQLite Word rows")
+    p_goethe = sub.add_parser(
+        "goethe",
+        help="fetch & seed DWDS Goethe-Zertifikat word lists (A1, A2, B1)",
+    )
+    p_goethe.add_argument(
+        "--with-frequency",
+        action="store_true",
+        help="fetch frequency data (bucket + hits) from DWDS for each word",
+    )
     sub.add_parser("cached-enrich", help="enrich all words from local DWDS cache only (no HTTP)")
     p_enrich = sub.add_parser("enrich", help="fetch DWDS definitions + examples")
     p_enrich.add_argument(
@@ -442,50 +416,45 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="fetch IPA pronunciation for each word",
     )
-    p_all = sub.add_parser("all", help="scrape then seed then enrich (default)")
-    p_all.add_argument("--headed", action="store_true", help="show the browser window (debug)")
-    p_all.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        help="maximum words to enrich",
+    p_enrich.add_argument(
+        "--with-frequency",
+        action="store_true",
+        help="fetch frequency data (bucket + hits) from DWDS for each word",
     )
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Console-script entry: ``uv run ingest [scrape|seed|enrich|all]``."""
+    """Console-script entry: ``uv run ingest [goethe|enrich|cached-enrich]``.
+
+    When called without a subcommand, defaults to ``goethe``.
+    """
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     args = _build_parser().parse_args(argv)
-    cmd = args.cmd or "all"
-    headless = not getattr(args, "headed", False)
+    cmd = args.cmd or "goethe"
 
     if cmd == "goethe":
         entries = asyncio.run(fetch_all_goethe_lists())
-        result = seed_goethe(entries)
+        with_freq = getattr(args, "with_frequency", False)
+        result = seed_goethe(entries, with_frequency=with_freq)
         for level, (ins, skip) in result.items():
             print(f"goethe {level}: {ins} inserted, {skip} skipped")
         total_ins = sum(ins for _, (ins, _) in result.items())
         total_skip = sum(skip for _, (_, skip) in result.items())
         print(f"goethe total: {total_ins} inserted, {total_skip} skipped")
-    elif cmd == "scrape":
-        _run_scrape(args.seed_path, headless=headless)
-    elif cmd == "seed":
-        _run_seed(args.seed_path)
     elif cmd == "cached-enrich":
         enriched, failed = enrich_all_cached()
         print(f"cached-enrich: {enriched} enriched, {failed} failed")
     elif cmd == "enrich":
         limit = getattr(args, "limit", None)
         enriched, failed = asyncio.run(
-            enrich_words(limit, corpus_api=getattr(args, "corpus_api", False), with_ipa=getattr(args, "with_ipa", False))
+            enrich_words(
+                limit,
+                corpus_api=getattr(args, "corpus_api", False),
+                with_ipa=getattr(args, "with_ipa", False),
+                with_frequency=getattr(args, "with_frequency", False),
+            )
         )
-        print(f"enrich: {enriched} enriched, {failed} failed (no definition)")
-    elif cmd == "all":
-        _run_scrape(args.seed_path, headless=headless)
-        _run_seed(args.seed_path)
-        limit = getattr(args, "limit", None)
-        enriched, failed = asyncio.run(enrich_words(limit=limit))
         print(f"enrich: {enriched} enriched, {failed} failed (no definition)")
     else:  # pragma: no cover - argparse rejects unknowns
         raise SystemExit(f"unknown command: {cmd}")

@@ -8,16 +8,13 @@ Legend: 🟢 must-have · 🟡 should-have · 🔵 nice-to-have
 
 ## M0 — Project skeleton - Completed
 
-## M1 — Seed ingest from vocabeo - Completed (deprecated)
+## M1 — Seed ingest from vocabeo - Removed
 
-The original M1 scraped vocabeo.com/browse for a ~6200-word seed list. This worked
-but the vocabeo list is noisy — many entries are not high-quality, definitions
-were in English, and CEFR levels were only present for a subset.
-
-**Replaced by M1-DWDS below.** The `vocabeo.py` scraper and `data/vocabeo_seed.jsonl`
-remain in the repo for reference but are no longer the primary seed source.
-Existing vocabeo-derived words in the DB should be migrated or left in place
-(they will have `source_ref LIKE 'vocabeo:%'` and can co-exist).
+The original M1 scraped vocabeo.com/browse for a ~6200-word seed list. This was
+replaced by M1-DWDS and has now been **fully removed** — the `vocabeo.py` module,
+its test fixtures, and the `scrape`/`seed`/`all` pipeline subcommands have been
+deleted. All words in the DB now come from the official DWDS Goethe-Zertifikat
+lists. See M1-DWDS below.
 
 ---
 
@@ -287,8 +284,8 @@ auditable before it becomes part of the main learning corpus, especially the las
 |---|---|---|---|
 | Word lists (A1/A2/B1) | `GET /api/lemma/goethe/{level}.csv` | CSV API | ✅ Done (M1-DWDS) |
 | Definitions | `GET /wb/{lemma}` | HTML scraping | ✅ Done (M2) — no API alternative |
-| Corpus examples | `GET /r?q={lemma}&view=json` | JSON API | 🔄 M2a (replace HTML) |
-| IPA | `GET /api/ipa/?q={lemma}` | JSON API | 🔄 M2b |
+| Corpus examples | `GET /r?q={lemma}&view=json` | JSON API | ✅ Done (M2a) |
+| IPA | `GET /api/ipa/?q={lemma}` | JSON API | ✅ Done (M2b) |
 | Frequency | `GET /api/frequency/?q={lemma}` | JSON API | 📋 Future |
 | Collocations | `GET /wb/{lemma}` | HTML scraping | 📋 Future — no API |
 | Conjugations | Verbformen (external) | HTML scraping | 📋 Future |
@@ -300,11 +297,11 @@ auditable before it becomes part of the main learning corpus, especially the las
 ```
 M1-DWDS (fetch + seed Goethe lists)               — done
     ↓
-M2a    (korpus API examples instead of HTML)       — next
+M2a    (korpus API examples instead of HTML)       — done
     ↓
-M2b    (IPA via API)                                — optional
+M2b    (IPA via API)                                — done
     ↓
-Re-enrich all Goethe words: dwds definitions (HTML) + API examples + IPA
+Re-enrich all Goethe words: dwds definitions (HTML) + API examples + IPA  — next
 ```
 
 The existing M3/M4/M5/M6/M7/M8/M9 features are all complete and work with

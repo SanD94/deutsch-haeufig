@@ -31,3 +31,7 @@
 - **Fix:** Added `.limit(1)` to the SELECT in `upsert_goethe_word()` — this is safe because any match is good enough for upsert.
 - After fix: 3305 Goethe words seeded (840 A1, 616 A2, 1849 B1), dupe count against vocabeo: 2270 skipped.
 - The old vocabeo words with the same lemma+pos keep their existing level (lowest is preserved).
+- **Bug:** `upsert_goethe_word()` unconditionally set `source_ref = entry.source_ref` even when keeping a lower level. E.g., `recht/adj` appeared in A2 + B1 — after A2 processed, it had `source_ref=dwds:goethe:A2`, then B1 overwrote to `dwds:goethe:B1` even though level stayed A2.
+  - **Fix:** Guard with `if existing.level == entry.level or entry.level is None` — only update source_ref when the entry's level matches the kept level.
+  - 56 mismatches in existing DB were manually corrected with a migration query.
+- **Final state after fixes:** All 3305 unique `(lemma, pos)` from Goethe CSV are in DB. Zero source_ref/level mismatches.

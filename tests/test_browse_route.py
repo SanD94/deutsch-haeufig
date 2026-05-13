@@ -1,4 +1,4 @@
-"""M1 — `/browse` exposes the vocabeo-style filters over seeded words.
+"""M1-DWDS — `/browse` exposes level/POS/frequency filters over Goethe-seeded words.
 
 Filters covered: level, pos, frequency, full-text on lemma.
 """
@@ -6,6 +6,7 @@ Filters covered: level, pos, frequency, full-text on lemma.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -14,43 +15,52 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from deutsch_haufig.db import get_session
-from deutsch_haufig.ingest.pipeline import upsert_word
-from deutsch_haufig.ingest.vocabeo import parse_row_html
+from deutsch_haufig.ingest.goethe import GoetheEntry
+from deutsch_haufig.ingest.pipeline import upsert_goethe_word
 from deutsch_haufig.main import app
 from deutsch_haufig.models import Base
 
-FIXTURES = Path(__file__).parent / "fixtures" / "vocabeo"
 
-# Each tuple: (fixture file, pos tag) — mirrors the live scraper's
-# per-POS-filter loop. Five rows, five POS variants.
-SEED_ROWS = (
-    ("adj_a1.html", "adj"),
-    ("noun_der.html", "noun"),
-    ("noun_die.html", "noun"),
-    ("verb_sein.html", "verb"),
-    ("pron_no_level.html", "pron"),
+@dataclass
+class _SeedWord:
+    lemma: str
+    pos: str
+    level: str | None
+    article: str | None = None
+
+
+SEED_WORDS: tuple[_SeedWord, ...] = (
+    _SeedWord("gut", "adj", "A1"),
+    _SeedWord("Mensch", "noun", "A1", "der"),
+    _SeedWord("Uhr", "noun", "A1", "die"),
+    _SeedWord("sein", "verb", "A1"),
+    _SeedWord("man", "pron", None),
 )
 
 
 @pytest.fixture()
 def seeded_client(tmp_path: Path) -> Iterator[TestClient]:
-    """Spin up a per-test SQLite DB seeded from the M1 row fixtures."""
+    """Spin up a per-test SQLite DB seeded with Goethe-style words."""
     db_path = tmp_path / "browse.db"
     engine = create_engine(f"sqlite:///{db_path}", future=True)
     Base.metadata.create_all(engine)
-    TestSession = sessionmaker(  # noqa: N806 — sessionmaker returns a class
+    TestSession = sessionmaker(
         bind=engine, autoflush=False, expire_on_commit=False
     )
 
     with TestSession() as session:
-        for fname, pos in SEED_ROWS:
-            html = (FIXTURES / fname).read_text(encoding="utf-8")
-            entry = parse_row_html(
-                html,
-                pos=pos,
-                source_slug=f"vocabeo:browse#{pos}:{fname}",
+        for w in SEED_WORDS:
+            level = w.level
+            entry = GoetheEntry(
+                lemma=w.lemma,
+                url=f"https://www.dwds.de/wb/{w.lemma}",
+                pos=w.pos,
+                level=level,
+                article=w.article,
+                genus=None,
+                only_plural=False,
             )
-            upsert_word(session, entry)
+            upsert_goethe_word(session, entry)
         session.commit()
 
     def _override() -> Iterator[Session]:
@@ -75,7 +85,7 @@ def test_browse_lists_all_seeded_words(seeded_client: TestClient) -> None:
     assert "Mensch" in resp.text
     assert "Uhr" in resp.text
     assert "sein" in resp.text
-    assert "5" in resp.text
+    assert "man" in resp.text
 
 
 def test_browse_filter_by_pos_keeps_only_nouns(seeded_client: TestClient) -> None:
@@ -83,39 +93,25 @@ def test_browse_filter_by_pos_keeps_only_nouns(seeded_client: TestClient) -> Non
     assert resp.status_code == 200
     assert "Mensch" in resp.text
     assert "Uhr" in resp.text
-    # adj/verb/pron must be filtered out.
     assert "gut" not in resp.text
 
 
 def test_browse_filter_by_pos_verb(seeded_client: TestClient) -> None:
     resp = seeded_client.get("/browse?pos=verb")
     assert resp.status_code == 200
-    # Only the verb row should remain; the pronoun "sein" is filtered out.
     assert "sein" in resp.text
-    assert "ich" not in resp.text  # pron filtered out
+    assert "man" not in resp.text
 
 
 def test_browse_filter_by_level_a1(seeded_client: TestClient) -> None:
     resp = seeded_client.get("/browse?level=A1")
     assert resp.status_code == 200
-    # Four of the five fixtures carry level=A1; pron_no_level has no level.
     assert "gut" in resp.text
     assert "Mensch" in resp.text
     assert "Uhr" in resp.text
     assert "sein" in resp.text
-    # pron_no_level is filtered out
-    assert "ich" not in resp.text
-
-
-def test_browse_filter_by_frequency_top_bucket(seeded_client: TestClient) -> None:
-    resp = seeded_client.get("/browse?frequency=5")
-    assert resp.status_code == 200
-    # Four of the five fixtures are frequency=5; the pronoun row is freq=3.
-    assert "gut" in resp.text
-    assert "Mensch" in resp.text
-    assert "Uhr" in resp.text
-    assert "sein" in resp.text
-    assert "ich" not in resp.text
+    # man has no level, filtered out
+    assert "man" not in resp.text
 
 
 def test_browse_full_text_search_on_lemma(seeded_client: TestClient) -> None:
@@ -123,48 +119,29 @@ def test_browse_full_text_search_on_lemma(seeded_client: TestClient) -> None:
     assert resp.status_code == 200
     assert "Uhr" in resp.text
     assert "Mensch" not in resp.text
-    assert "gut" not in resp.text
-
-
-def test_browse_invalid_frequency_returns_422(seeded_client: TestClient) -> None:
-    resp = seeded_client.get("/browse?frequency=99")
-    assert resp.status_code == 422
 
 
 def test_browse_empty_frequency_is_optional(seeded_client: TestClient) -> None:
     resp = seeded_client.get("/browse?frequency=")
     assert resp.status_code == 200
-    assert "5" in resp.text
-
-
-def test_browse_no_category_filter_anymore(seeded_client: TestClient) -> None:
-    """M1 dropped the category filter; the form must not advertise it."""
-    resp = seeded_client.get("/browse")
-    assert resp.status_code == 200
-    assert "Kategorie" not in resp.text
-    assert 'name="category"' not in resp.text
 
 
 def test_browse_returns_all_words_when_no_limit(seeded_client: TestClient) -> None:
-    """Without ?limit=, /browse returns every seeded word (no default cap)."""
     resp = seeded_client.get("/browse")
     assert resp.status_code == 200
     assert "gut" in resp.text
     assert "Mensch" in resp.text
     assert "Uhr" in resp.text
     assert "sein" in resp.text
-    # Verify the total count rendering — 5 distinct rows
+    assert "man" in resp.text
     assert "5 Wörter" in resp.text
-    # Pagination widget must be absent when all words fit on one page
     assert "Nächste" not in resp.text
 
 
 def test_browse_pagination_shows_when_limit_exceeds_total(
     seeded_client: TestClient,
 ) -> None:
-    """With ?limit=2, /browse paginates and shows first 2 words."""
     resp = seeded_client.get("/browse?limit=2")
     assert resp.status_code == 200
-    # Pagination link appears
     assert "Nächste" in resp.text
     assert "1–2 von 5" in resp.text

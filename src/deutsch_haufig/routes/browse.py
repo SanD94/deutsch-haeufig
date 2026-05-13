@@ -1,4 +1,4 @@
-"""Browse route — list seeded words with the M1 vocabeo-style filters.
+"""Browse route — list seeded words with level/POS/frequency filters.
 
 Filters (all optional, all combined with AND):
 
@@ -20,14 +20,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from deutsch_haufig.db import get_session
-from deutsch_haufig.ingest.vocabeo import KNOWN_POS_TAGS
 from deutsch_haufig.models import Word
 from deutsch_haufig.templating import template_response
 
 router = APIRouter()
 
+KNOWN_POS_TAGS: tuple[str, ...] = ("adj", "adv", "conj", "interj", "noun", "num", "prep", "pron", "verb")
 KNOWN_LEVELS = ("A1", "A2", "B1")
-KNOWN_POS = KNOWN_POS_TAGS
 KNOWN_FREQUENCIES = (5, 4, 3, 2, 1)
 
 
@@ -97,7 +96,7 @@ def browse(
             "limit": limit,
             "offset": offset,
             "known_levels": KNOWN_LEVELS,
-            "known_pos": KNOWN_POS,
+            "known_pos": KNOWN_POS_TAGS,
             "known_frequencies": KNOWN_FREQUENCIES,
         },
     )

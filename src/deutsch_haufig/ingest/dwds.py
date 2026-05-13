@@ -387,6 +387,81 @@ async def fetch_ipa(
     return parse_ipa_response(data)
 
 
+# --- Frequency API (M2c) ----------------------------------------------------
+
+
+FREQ_BASE = "https://www.dwds.de/api/frequency"
+
+
+@dataclass(frozen=True)
+class DWDSFrequency:
+    """Frequency data from the DWDS frequency API."""
+
+    lemma: str
+    frequency: int  # logarithmic bucket 0-6
+    hits: int  # raw corpus hit count
+
+
+def _freq_cache_path(lemma: str) -> Path:
+    """Path for caching a DWDS frequency API response for a given lemma."""
+    return CACHE_DIR / "freq" / f"{lemma}.json"
+
+
+def parse_frequency_response(lemma: str, data: dict) -> DWDSFrequency | None:
+    """Parse frequency JSON response from the DWDS frequency API.
+
+    Pure function — no I/O.
+    The API returns ``{"q": "...", "frequency": 0..6, "hits": N}``.
+    """
+    if not data or not isinstance(data, dict):
+        return None
+    freq = data.get("frequency")
+    hits = data.get("hits")
+    if freq is None or hits is None:
+        return None
+    return DWDSFrequency(lemma=lemma, frequency=int(freq), hits=int(hits))
+
+
+async def fetch_frequency(
+    lemma: str,
+    *,
+    use_cache: bool = True,
+    force_fetch: bool = False,
+) -> DWDSFrequency | None:
+    """Fetch frequency data for a lemma from the DWDS frequency API.
+
+    Returns ``DWDSFrequency`` or None if the API call fails.
+    Caches responses to ``data/dwds_cache/freq/{lemma}.json``.
+    """
+    import json
+
+    cache_path = _freq_cache_path(lemma)
+
+    if use_cache and not force_fetch and cache_path.exists():
+        logger.debug("[freq:%s] loading from cache", lemma)
+        data = json.loads(cache_path.read_text(encoding="utf-8"))
+        return parse_frequency_response(lemma, data)
+
+    url = f"{FREQ_BASE}/?q={lemma}"
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(30.0, connect=10.0),
+        follow_redirects=True,
+    ) as client:
+        response = await client.get(url)
+        if response.status_code != 200:
+            logger.warning("[freq:%s] returned %d", lemma, response.status_code)
+            return None
+        data = response.json()
+
+    if not isinstance(data, dict):
+        return None
+
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    return parse_frequency_response(lemma, data)
+
+
 # --- batch processing ------------------------------------------------------
 
 

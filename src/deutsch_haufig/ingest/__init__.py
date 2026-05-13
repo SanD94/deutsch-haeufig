@@ -1,1 +1,1 @@
-"""Ingest pipeline (vocabeo seed + dwds enrichment). Filled in from M1."""
+"""Ingest pipeline (DWDS Goethe seed + enrichment)."""

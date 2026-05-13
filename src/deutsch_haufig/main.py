@@ -3,7 +3,7 @@
 Exposes:
 
   - ``GET /``        → "Hello, Deutschland" landing page (M0).
-  - ``GET /browse``  → seed-corpus browse with vocabeo-style filters (M1).
+  - ``GET /browse``  → seed-corpus browse with level/POS/frequency filters.
 """
 
 from __future__ import annotations

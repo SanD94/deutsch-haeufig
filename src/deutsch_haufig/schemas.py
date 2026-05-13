@@ -26,4 +26,5 @@ class WordDetail(BaseModel):
     pos: str
     level: str | None = None
     frequency: int | None = None
+    frequency_hits: int | None = None
     senses: list[SenseOut] = []

@@ -26,6 +26,7 @@ class Word(Base):
     pos: Mapped[str] = mapped_column(String(16), index=True)
     level: Mapped[str | None] = mapped_column(String(4), nullable=True, index=True)
     frequency: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    frequency_hits: Mapped[int | None] = mapped_column(Integer, nullable=True)
     ipa: Mapped[str | None] = mapped_column(String(64), nullable=True)
     plural: Mapped[str | None] = mapped_column(String(128), nullable=True)
     source_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
