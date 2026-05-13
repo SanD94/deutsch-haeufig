@@ -192,6 +192,79 @@ The `/api/ipa/?q={lemma}` endpoint returns IPA notation — no HTML scraping nee
 
 ---
 
+## M8a — Project-defined B2 common-word layer
+
+There is no official DWDS/Goethe B2 word list available in the same way as the
+A1/A2/B1 Goethe-Zertifikat lists. Do **not** search for or import an unofficial
+B2 list. Instead, define a reproducible in-project approximation using DWDS data.
+
+**Definition for now:** B2 means “the best 1,000 common contemporary DWDS
+dictionary lemmas after removing official Goethe A1/A2/B1 words.” This is a
+project label, not a claim of official CEFR certification.
+
+### Lower bound — define first
+
+🟢 A candidate is allowed into the B2 pool only if:
+   - Its `(lemma, pos)` is not already present in Goethe A1/A2/B1.
+   - It has a DWDS dictionary entry URL.
+   - It has a useful learner POS (`Substantiv`, `Verb`, `Adjektiv`, `Adverb`, plus
+     a small number of high-utility connectors/particles/pronouns).
+   - It has usable DWDS frequency data from `GET /api/frequency/?q={lemma}`;
+     rank primarily by raw `hits`, with the 0–6 `frequency` bucket kept only as
+     an audit/sanity signal.
+
+This lower bound gives “beyond B1” plus “still common enough to learn early.”
+
+### Upper bound — make it top-N, not a frequency range
+
+🟡 Do not define B2 with a fixed frequency interval. A range can still include
+bad learner words and exclude better ones. The practical upper bound is the
+**1,000th accepted candidate** after scoring, POS balancing, and review. If the
+tail of the top-1,000 is too specialist, too transparent/compound-heavy, or too
+easy, adjust the scoring and exclusions, then regenerate the same 1,000-word
+target.
+
+### Candidate-generation plan for 1,000 B2 words
+
+🟡 `ingest/b2.py` or equivalent pipeline step:
+   - Load DWDS headwords from `dwdswb-headwords.json` or the DWDS Lemmadatenbank
+     export if we need complete frequency-class data.
+   - Exclude all Goethe A1/A2/B1 `(lemma, pos)` pairs.
+   - Fetch/cache DWDS frequency responses; batch with pipe-separated `q` where
+     appropriate.
+   - Reject likely noise: proper names, affixes, spelling variants, regional-only
+     forms, historical-only terms, opaque narrow-domain compounds, multiword
+     expressions unless highly useful, and entries whose `/wb/{lemma}` page yields
+     no parseable definition.
+   - Rank primarily by `hits`, with `frequency` as a coarse bucket/check rather
+     than a level definition.
+   - Score for learner usefulness before taking the top 1,000. Useful candidates
+     should be common, semantically general, definable from DWDS, likely to occur
+     across several contexts, and not merely an obscure compound that wins by raw
+     corpus count.
+   - Stratify the final 1,000 so the list is broad, not noun-only:
+     - ~450 nouns
+     - ~220 verbs
+     - ~220 adjectives/participial adjectives
+     - ~70 adverbs
+     - ~40 connectors/particles/pronouns/other function words
+   - Persist as `level = "B2"`, `source_ref = "dwds:b2:auto:v1"`, and store both
+     DWDS `frequency` bucket and raw `hits` for later recalibration.
+   - Reuse the existing enrichment path: DWDS HTML definitions, corpus API
+     examples, optional IPA.
+
+🟡 Add a review/export command:
+```
+uv run ingest b2-candidates --limit 1000 --review-csv data/b2_candidates.csv
+```
+
+The CSV should include lemma, POS, DWDS URL, frequency bucket, hits, score,
+exclusion reason if rejected, and source_ref. This makes the generated B2 layer
+auditable before it becomes part of the main learning corpus, especially the last
+100 included candidates and first 100 excluded candidates.
+
+---
+
 ## M9 — UI language switching (i18n) - Completed
 
 🟢 Three translation files: `src/deutsch_haufig/i18n/{de,en,tr}.json` covering all UI strings.
