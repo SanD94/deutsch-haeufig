@@ -113,9 +113,7 @@ class TestEnrichWordsWithFlags:
     @pytest.mark.asyncio
     @patch("deutsch_haufig.ingest.dwds.fetch_words")
     @patch("deutsch_haufig.ingest.pipeline.init_db")
-    async def test_enrich_words_passes_corpus_api(
-        self, mock_init_db, mock_fetch_words
-    ) -> None:
+    async def test_enrich_words_passes_corpus_api(self, mock_init_db, mock_fetch_words) -> None:
         from deutsch_haufig.ingest.pipeline import enrich_words
 
         mock_fetch_words.return_value.__aiter__.return_value = iter([])
@@ -124,9 +122,7 @@ class TestEnrichWordsWithFlags:
     @pytest.mark.asyncio
     @patch("deutsch_haufig.ingest.dwds.fetch_words")
     @patch("deutsch_haufig.ingest.pipeline.init_db")
-    async def test_enrich_words_passes_with_ipa(
-        self, mock_init_db, mock_fetch_words
-    ) -> None:
+    async def test_enrich_words_passes_with_ipa(self, mock_init_db, mock_fetch_words) -> None:
         from deutsch_haufig.ingest.pipeline import enrich_words
 
         mock_fetch_words.return_value.__aiter__.return_value = iter([])
@@ -150,9 +146,7 @@ class TestEnrichWordsWithFlags:
     @patch("deutsch_haufig.ingest.dwds.fetch_words")
     @patch("deutsch_haufig.ingest.pipeline.init_db")
     @patch("deutsch_haufig.ingest.pipeline._enrich_ipa", new_callable=AsyncMock)
-    async def test_with_ipa_triggers_fetch(
-        self, mock_ipa, mock_init_db, mock_fetch_words
-    ) -> None:
+    async def test_with_ipa_triggers_fetch(self, mock_ipa, mock_init_db, mock_fetch_words) -> None:
         from deutsch_haufig.ingest.pipeline import enrich_words
 
         mock_fetch_words.return_value.__aiter__.return_value = iter([])

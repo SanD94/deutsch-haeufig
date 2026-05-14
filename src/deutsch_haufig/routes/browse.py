@@ -25,7 +25,17 @@ from deutsch_haufig.templating import template_response
 
 router = APIRouter()
 
-KNOWN_POS_TAGS: tuple[str, ...] = ("adj", "adv", "conj", "interj", "noun", "num", "prep", "pron", "verb")
+KNOWN_POS_TAGS: tuple[str, ...] = (
+    "adj",
+    "adv",
+    "conj",
+    "interj",
+    "noun",
+    "num",
+    "prep",
+    "pron",
+    "verb",
+)
 KNOWN_LEVELS = ("A1", "A2", "B1")
 KNOWN_FREQUENCIES = (5, 4, 3, 2, 1)
 

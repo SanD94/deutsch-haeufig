@@ -33,9 +33,7 @@ logger = logging.getLogger(__name__)
 # --- goethe (CSV → SQLite) ---------------------------------------------------
 
 
-def _normalize_level_for_duplicates(
-    existing: Word | None, new_level: str | None
-) -> str | None:
+def _normalize_level_for_duplicates(existing: Word | None, new_level: str | None) -> str | None:
     if existing is None or not existing.level:
         return new_level
     if new_level is None:
@@ -52,10 +50,14 @@ def upsert_goethe_word(session: Session, entry: GoetheEntry) -> bool:
     Returns True on insert, False on update.
     """
     session.commit()
-    stmt = select(Word).where(
-        Word.lemma == entry.lemma,
-        Word.pos == entry.pos,
-    ).limit(1)
+    stmt = (
+        select(Word)
+        .where(
+            Word.lemma == entry.lemma,
+            Word.pos == entry.pos,
+        )
+        .limit(1)
+    )
     existing = session.execute(stmt).scalar_one_or_none()
     if existing is None:
         level = entry.level
@@ -113,10 +115,14 @@ def seed_goethe(
         with SessionLocal() as session:
             for _level, level_entries in entries.items():
                 for entry in level_entries:
-                    stmt = select(Word).where(
-                        Word.lemma == entry.lemma,
-                        Word.pos == entry.pos,
-                    ).limit(1)
+                    stmt = (
+                        select(Word)
+                        .where(
+                            Word.lemma == entry.lemma,
+                            Word.pos == entry.pos,
+                        )
+                        .limit(1)
+                    )
                     w = session.execute(stmt).scalar_one_or_none()
                     if w:
                         all_new.append(w)
@@ -271,9 +277,11 @@ async def _enrich_corpus_examples(words: list) -> tuple[int, int]:
             fail += 1
             continue
         with SessionLocal() as session:
-            senses = session.execute(
-                select(Sense).where(Sense.word_id == w.id).order_by(Sense.order)
-            ).scalars().all()
+            senses = (
+                session.execute(select(Sense).where(Sense.word_id == w.id).order_by(Sense.order))
+                .scalars()
+                .all()
+            )
             for sense in senses[:1]:
                 for ex_data in examples:
                     ex = Example(
@@ -421,6 +429,28 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="fetch frequency data (bucket + hits) from DWDS for each word",
     )
+    p_b2 = sub.add_parser(
+        "b2-candidates",
+        help="collect ~1,000 B2 words via DWDS random API (dwdswb/random)",
+    )
+    p_b2.add_argument(
+        "--target",
+        type=int,
+        default=1000,
+        help="target B2 word count (default: 1000)",
+    )
+    p_b2.add_argument(
+        "--batch-size",
+        type=int,
+        default=5,
+        help="words per random API call (default: 5)",
+    )
+    p_b2.add_argument(
+        "--rate-limit",
+        type=float,
+        default=1.0,
+        help="seconds between API calls (default: 1.0)",
+    )
     return parser
 
 
@@ -456,6 +486,18 @@ def main(argv: list[str] | None = None) -> None:
             )
         )
         print(f"enrich: {enriched} enriched, {failed} failed (no definition)")
+    elif cmd == "b2-candidates":
+        from deutsch_haufig.ingest.b2 import generate_b2_candidates, persist  # noqa: PLC0415
+
+        candidates = asyncio.run(
+            generate_b2_candidates(
+                target=args.target,
+                batch_size=args.batch_size,
+                rate_limit=args.rate_limit,
+            )
+        )
+        ins, skip = persist(candidates)
+        print(f"b2-candidates: {len(candidates)} collected, {ins} inserted, {skip} skipped")
     else:  # pragma: no cover - argparse rejects unknowns
         raise SystemExit(f"unknown command: {cmd}")
 

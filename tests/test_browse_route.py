@@ -44,9 +44,7 @@ def seeded_client(tmp_path: Path) -> Iterator[TestClient]:
     db_path = tmp_path / "browse.db"
     engine = create_engine(f"sqlite:///{db_path}", future=True)
     Base.metadata.create_all(engine)
-    TestSession = sessionmaker(
-        bind=engine, autoflush=False, expire_on_commit=False
-    )
+    TestSession = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
     with TestSession() as session:
         for w in SEED_WORDS:

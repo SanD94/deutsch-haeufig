@@ -286,6 +286,7 @@ async def fetch_corpus_examples(
 
     if use_cache and not force_fetch and cache_path.exists():
         import json
+
         data = json.loads(cache_path.read_text(encoding="utf-8"))
         return parse_corpus_response(data, limit=limit)
 
