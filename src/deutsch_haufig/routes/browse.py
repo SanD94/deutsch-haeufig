@@ -2,7 +2,7 @@
 
 Filters (all optional, all combined with AND):
 
-  ?level=A1       CEFR level (A1 / A2 / B1)
+  ?level=A1       CEFR level (A1 / A2 / B1 / B2)
   ?pos=verb       part of speech (noun, verb, adj, adv, prep, conj, pron, interj, num)
   ?frequency=5    frequency bucket 1..5 (5 = most frequent)
   ?q=geb          case-insensitive substring on lemma
@@ -36,7 +36,7 @@ KNOWN_POS_TAGS: tuple[str, ...] = (
     "pron",
     "verb",
 )
-KNOWN_LEVELS = ("A1", "A2", "B1")
+KNOWN_LEVELS = ("A1", "A2", "B1", "B2")
 KNOWN_FREQUENCIES = (5, 4, 3, 2, 1)
 
 
