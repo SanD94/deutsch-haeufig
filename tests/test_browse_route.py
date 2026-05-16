@@ -44,9 +44,9 @@ def seeded_client(tmp_path: Path) -> Iterator[TestClient]:
     db_path = tmp_path / "browse.db"
     engine = create_engine(f"sqlite:///{db_path}", future=True)
     Base.metadata.create_all(engine)
-    TestSession = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    test_session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
-    with TestSession() as session:
+    with test_session() as session:
         for w in SEED_WORDS:
             level = w.level
             entry = GoetheEntry(
@@ -62,7 +62,7 @@ def seeded_client(tmp_path: Path) -> Iterator[TestClient]:
         session.commit()
 
     def _override() -> Iterator[Session]:
-        s = TestSession()
+        s = test_session()
         try:
             yield s
         finally:

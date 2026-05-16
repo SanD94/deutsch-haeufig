@@ -24,30 +24,75 @@ from deutsch_haufig.models import Word
 
 logger = logging.getLogger(__name__)
 
-CSV_PATH = Path.home() / "projects" / "deutsch-stat" / "outputs" / "b2_candidates_top1000.csv"
+CSV_PATH = Path(__file__).resolve().parent.parent.parent.parent / "data" / "b2" / "candidates.csv"
 
 # --- POS detection -----------------------------------------------------------
 
 KNOWN_ADVERBS: set[str] = {
-    "sowie", "dazu", "zudem", "davon", "derzeit", "zuvor", "weiterhin", "bislang",
-    "dennoch", "demnach", "daran", "darunter", "erstmals", "dadurch", "darin",
-    "daraufhin", "wiederum", "hingegen", "hinzu", "durchaus", "darum", "davor",
-    "somit", "wobei", "einst", "teils", "mehrfach", "immerhin", "jedenfalls",
-    "ohnehin", "vorerst", "stets", "lediglich", "daraus", "hervor", "letztlich",
-    "insbesondere", "zunehmend", "zugleich", "statdessen", "beispielsweise",
+    "sowie",
+    "dazu",
+    "zudem",
+    "davon",
+    "derzeit",
+    "zuvor",
+    "weiterhin",
+    "bislang",
+    "dennoch",
+    "demnach",
+    "daran",
+    "darunter",
+    "erstmals",
+    "dadurch",
+    "darin",
+    "daraufhin",
+    "wiederum",
+    "hingegen",
+    "hinzu",
+    "durchaus",
+    "darum",
+    "davor",
+    "somit",
+    "wobei",
+    "einst",
+    "teils",
+    "mehrfach",
+    "immerhin",
+    "jedenfalls",
+    "ohnehin",
+    "vorerst",
+    "stets",
+    "lediglich",
+    "daraus",
+    "hervor",
+    "letztlich",
+    "insbesondere",
+    "zunehmend",
+    "zugleich",
+    "statdessen",
+    "beispielsweise",
     "nach wie vor",
 }
 
 KNOWN_PREPOSITIONS: set[str] = {
-    "aufgrund", "angesichts", "zufolge", "einschließlich", "trotz",
+    "aufgrund",
+    "angesichts",
+    "zufolge",
+    "einschließlich",
+    "trotz",
 }
 
 KNOWN_CONJUNCTIONS: set[str] = {
-    "bzw.", "sodass", "so dass", "indem", "sofern",
+    "bzw.",
+    "sodass",
+    "so dass",
+    "indem",
+    "sofern",
 }
 
 KNOWN_PRONOUNS: set[str] = {
-    "einiger", "jener", "diejenige",
+    "einiger",
+    "jener",
+    "diejenige",
 }
 
 
@@ -128,7 +173,9 @@ def _load_existing_goethe_lemmas() -> set[str]:
         return {r[0] for r in rows}
 
 
-def persist(candidates: list[B2Candidate], *, source_ref: str = "dwds:b2:stat:v1") -> tuple[int, int]:
+def persist(
+    candidates: list[B2Candidate], *, source_ref: str = "dwds:b2:stat:v1"
+) -> tuple[int, int]:
     """Persist B2 words to DB. Returns (inserted, skipped).
 
     Skips lemmas that already exist at A1/A2/B1 level.

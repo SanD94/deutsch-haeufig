@@ -63,11 +63,7 @@ class TestReadCandidates:
     def test_parses_csv(self, tmp_path: Path) -> None:
         csv_file = tmp_path / "candidates.csv"
         csv_file.write_text(
-            "lemma,is_title_case\n"
-            "Haus,true\n"
-            "arbeiten,false\n"
-            "schön,false\n"
-            "sowie,false\n"
+            "lemma,is_title_case\nHaus,true\narbeiten,false\nschön,false\nsowie,false\n"
         )
         candidates = read_candidates(csv_file)
         assert len(candidates) == 4

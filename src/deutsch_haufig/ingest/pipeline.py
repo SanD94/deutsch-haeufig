@@ -13,11 +13,13 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from deutsch_haufig.db import SessionLocal, init_db
+from deutsch_haufig.ingest.b2 import clear_existing_b2, persist, read_candidates
 from deutsch_haufig.ingest.dwds import (
     DWDSEntry,
 )
@@ -437,7 +439,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--csv",
         type=str,
         default=None,
-        help="path to B2 candidates CSV (default: ~/projects/deutsch-stat/outputs/b2_candidates_top1000.csv)",
+        help="path to B2 candidates CSV (default: data/b2/candidates.csv)",
     )
     p_b2.add_argument(
         "--clear",
@@ -480,8 +482,6 @@ def main(argv: list[str] | None = None) -> None:
         )
         print(f"enrich: {enriched} enriched, {failed} failed (no definition)")
     elif cmd == "b2-candidates":
-        from deutsch_haufig.ingest.b2 import clear_existing_b2, persist, read_candidates  # noqa: PLC0415
-
         if args.clear:
             deleted = clear_existing_b2()
             print(f"b2-candidates: cleared {deleted} existing words")
