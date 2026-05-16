@@ -36,7 +36,7 @@ class TestMainArgparse:
 
     @pytest.mark.parametrize("removed", ["scrape", "seed", "all"])
     def test_removed_subcommands_rejected(self, removed: str) -> None:
-        """Old vocabeo subcommands must be rejected."""
+        """Removed subcommands must be rejected."""
         parser = _build_parser()
         with pytest.raises(SystemExit):
             parser.parse_args([removed])

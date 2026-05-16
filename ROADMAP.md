@@ -8,13 +8,9 @@ Legend: 🟢 must-have · 🟡 should-have · 🔵 nice-to-have
 
 ## M0 — Project skeleton - Completed
 
-## M1 — Seed ingest from vocabeo - Removed
+## M1 — Seed ingest from DWDS - Completed
 
-The original M1 scraped vocabeo.com/browse for a ~6200-word seed list. This was
-replaced by M1-DWDS and has now been **fully removed** — the `vocabeo.py` module,
-its test fixtures, and the `scrape`/`seed`/`all` pipeline subcommands have been
-deleted. All words in the DB now come from the official DWDS Goethe-Zertifikat
-lists. See M1-DWDS below.
+All words come from the official DWDS Goethe-Zertifikat lists. See M1-DWDS below.
 
 ---
 
@@ -305,5 +301,4 @@ Re-enrich all Goethe words: dwds definitions (HTML) + API examples + IPA  — ne
 ```
 
 The existing M3/M4/M5/M6/M7/M8/M9 features are all complete and work with
-whatever words are in the DB — they don't care whether words came from vocabeo
-or Goethe lists.
+whatever words are in the DB — they don't care which word list the words came from.

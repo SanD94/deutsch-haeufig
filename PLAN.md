@@ -21,8 +21,7 @@ Each word arrives with:
 
 The CSV is fetched from `https://www.dwds.de/api/lemma/goethe/{A1,A2,B1}.csv`.
 
-The old vocabeo.com/browse scraper has been removed. All words come from the
-official DWDS Goethe-Zertifikat lists.
+All words come from the official DWDS Goethe-Zertifikat lists.
 
 ### B2 extension: project-defined common-word layer
 
@@ -295,7 +294,6 @@ deutsch-haufig/
 │   │   ├── *.html               # cached /wb/{lemma} pages (HTML scrape for definitions)
 │   │   ├── corpus/*.json        # cached korpus API responses (JSON)
 │   │   └── ipa/*.json           # cached IPA API responses (JSON)
-│   └── vocabeo_seed.jsonl       # (deprecated, may be present from old runs)
 ├── src/deutsch_haufig/
 │   ├── __init__.py
 │   ├── main.py                  # FastAPI entrypoint

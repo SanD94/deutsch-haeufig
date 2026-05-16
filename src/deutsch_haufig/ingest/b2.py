@@ -1,24 +1,22 @@
-"""Generate project-defined B2 word candidates via DWDS random API.
+"""Generate project-defined B2 word candidates from a curated frequency list.
 
-Implements ROADMAP M8a strategy using the simple approach:
+Replaces the old DWDS random API approach with a data-driven method using
+corpus-frequency analysis (from the deutsch-stat project at
+``~/projects/deutsch-stat/outputs/b2_candidates_top1000.csv``).
 
-  1. Fetch random words from ``/api/wb/random?count=5``.
-  2. Skip words already in Goethe A1/A2/B1.
-  3. Skip obscure entries (type != Basisartikel / Vollartikel).
-  4. Collect until we have ~1,000 candidates.
-  5. Persist as ``level="B2"``, ``source_ref="dwds:b2:random:v1"``.
+Usage::
 
-This is a project-defined label, not an official CEFR certification.
+    uv run ingest b2-candidates
+    uv run ingest enrich  # then enrich with DWDS definitions
 """
 
 from __future__ import annotations
 
-import asyncio
+import csv
 import logging
-import time
 from dataclasses import dataclass
+from pathlib import Path
 
-import httpx
 from sqlalchemy import text
 
 from deutsch_haufig.db import SessionLocal, init_db
@@ -26,27 +24,58 @@ from deutsch_haufig.models import Word
 
 logger = logging.getLogger(__name__)
 
-UA = "deutsch-haufig/0.1"
-RANDOM_URL = "https://www.dwds.de/api/wb/random"
+CSV_PATH = Path.home() / "projects" / "deutsch-stat" / "outputs" / "b2_candidates_top1000.csv"
 
-POS_MAP: dict[str, str] = {
-    "Substantiv": "noun",
-    "Verb": "verb",
-    "Adjektiv": "adj",
-    "Adverb": "adv",
-    "Präposition": "prep",
-    "Konjunktion": "conj",
-    "Pronomen": "pron",
-    "Partikel": "particle",
-    "Interjektion": "interj",
-    "Mehrwortausdruck": "phrase",
-    "Affix": "affix",
-    "Symbol": "symbol",
-    "Eigenname": "noun",
-    "Kardinalzahlwort": "num",
-    "Ordinalzahlwort": "num",
-    "Bruchzahlwort": "num",
+# --- POS detection -----------------------------------------------------------
+
+KNOWN_ADVERBS: set[str] = {
+    "sowie", "dazu", "zudem", "davon", "derzeit", "zuvor", "weiterhin", "bislang",
+    "dennoch", "demnach", "daran", "darunter", "erstmals", "dadurch", "darin",
+    "daraufhin", "wiederum", "hingegen", "hinzu", "durchaus", "darum", "davor",
+    "somit", "wobei", "einst", "teils", "mehrfach", "immerhin", "jedenfalls",
+    "ohnehin", "vorerst", "stets", "lediglich", "daraus", "hervor", "letztlich",
+    "insbesondere", "zunehmend", "zugleich", "statdessen", "beispielsweise",
+    "nach wie vor",
 }
+
+KNOWN_PREPOSITIONS: set[str] = {
+    "aufgrund", "angesichts", "zufolge", "einschließlich", "trotz",
+}
+
+KNOWN_CONJUNCTIONS: set[str] = {
+    "bzw.", "sodass", "so dass", "indem", "sofern",
+}
+
+KNOWN_PRONOUNS: set[str] = {
+    "einiger", "jener", "diejenige",
+}
+
+
+def detect_pos(lemma: str) -> str:
+    """Detect POS for a German B2 candidate using word form heuristics."""
+    if not lemma:
+        return "noun"
+    first = lemma[0]
+    if first.isupper():
+        return "noun"
+    if lemma in KNOWN_ADVERBS:
+        return "adv"
+    if lemma in KNOWN_PREPOSITIONS:
+        return "prep"
+    if lemma in KNOWN_CONJUNCTIONS:
+        return "conj"
+    if lemma in KNOWN_PRONOUNS:
+        return "pron"
+    if lemma.endswith(("ieren", "eien")):
+        return "verb"
+    if lemma.endswith("en") and len(lemma) >= 4:
+        return "verb"
+    if lemma.endswith(("eln", "ern")) and len(lemma) >= 5:
+        return "verb"
+    return "adj"
+
+
+# --- CSV reading -------------------------------------------------------------
 
 
 @dataclass
@@ -54,14 +83,44 @@ class B2Candidate:
     lemma: str
     pos: str
     article: str | None = None
+    is_title_case: bool = False
 
 
-def _normalize_pos(dwds_pos: str) -> str:
-    return POS_MAP.get(dwds_pos.strip(), dwds_pos.strip().lower())
+def read_candidates(csv_path: Path = CSV_PATH) -> list[B2Candidate]:
+    """Read B2 candidates from the curated CSV file.
+
+    Returns a list of B2Candidate objects with POS detected via heuristics.
+    """
+    if not csv_path.exists():
+        msg = f"B2 candidates CSV not found: {csv_path}"
+        raise FileNotFoundError(msg)
+
+    candidates: list[B2Candidate] = []
+    seen: set[str] = set()
+
+    with csv_path.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            lemma = (row.get("lemma") or "").strip()
+            if not lemma:
+                continue
+            if lemma in seen:
+                continue
+            seen.add(lemma)
+
+            is_title_case = row.get("is_title_case", "").strip().lower() == "true"
+            pos = detect_pos(lemma)
+            candidates.append(B2Candidate(lemma=lemma, pos=pos, is_title_case=is_title_case))
+
+    logger.info("read %d B2 candidates from %s", len(candidates), csv_path)
+    return candidates
 
 
-def _load_goethe_lemmas() -> set[str]:
-    """Load all A1/A2/B1 lemmas from DB (POS-agnostic check)."""
+# --- persistence -------------------------------------------------------------
+
+
+def _load_existing_goethe_lemmas() -> set[str]:
+    """Load all A1/A2/B1 lemmas from DB (POS-agnostic)."""
     with SessionLocal() as session:
         rows = session.execute(
             text("SELECT DISTINCT lemma FROM words WHERE level IN ('A1', 'A2', 'B1')")
@@ -69,128 +128,18 @@ def _load_goethe_lemmas() -> set[str]:
         return {r[0] for r in rows}
 
 
-def _load_existing_b2_lemmas() -> set[str]:
-    """Load already-persisted B2 lemmas to avoid duplicates across runs."""
-    with SessionLocal() as session:
-        rows = session.execute(
-            text("SELECT DISTINCT lemma FROM words WHERE level = 'B2'")
-        ).fetchall()
-        return {r[0] for r in rows}
+def persist(candidates: list[B2Candidate], *, source_ref: str = "dwds:b2:stat:v1") -> tuple[int, int]:
+    """Persist B2 words to DB. Returns (inserted, skipped).
 
-
-def _is_noise(lemma: str, pos: str) -> bool:
-    """Quick noise check — skip affixes, symbols, multiword."""
-    if pos in ("affix", "symbol", "phrase"):
-        return True
-    if " " in lemma:
-        return True
-    if lemma.startswith("-") or lemma.endswith("-"):
-        return True
-    return False
-
-
-async def fetch_batch(client: httpx.AsyncClient, count: int = 5) -> list[dict]:
-    """Fetch a batch of random words from DWDS."""
-    try:
-        resp = await client.get(
-            f"{RANDOM_URL}?count={count}",
-            headers={"User-Agent": UA},
-            timeout=15,
-        )
-        if resp.status_code != 200:
-            return []
-        return resp.json()
-    except (httpx.HTTPError, OSError):
-        return []
-
-
-async def generate_b2_candidates(
-    *,
-    target: int = 1000,
-    batch_size: int = 5,
-    rate_limit: float = 1.0,
-) -> list[B2Candidate]:
-    """Collect B2 candidates from DWDS random API until target is reached."""
+    Skips lemmas that already exist at A1/A2/B1 level.
+    """
     init_db()
-    goethe = _load_goethe_lemmas()
-    existing_b2 = _load_existing_b2_lemmas()
-    skip_lemmas = goethe | existing_b2
-
-    logger.info("Goethe A1/A2/B1 lemmas: %d", len(goethe))
-    logger.info("Existing B2 lemmas: %d", len(existing_b2))
-
-    candidates: list[B2Candidate] = []
-    seen: set[str] = set() | skip_lemmas
-    attempts = 0
-    last_req = 0.0
-
-    async with httpx.AsyncClient(
-        timeout=httpx.Timeout(30.0, connect=10.0),
-        follow_redirects=True,
-    ) as client:
-        while len(candidates) < target:
-            # Rate limit
-            now = time.monotonic()
-            wait = rate_limit - (now - last_req)
-            if wait > 0:
-                await asyncio.sleep(wait)
-            last_req = time.monotonic()
-
-            batch = await fetch_batch(client, count=batch_size)
-            attempts += 1
-
-            if not batch:
-                logger.warning("empty batch at attempt %d, sleeping 5s", attempts)
-                await asyncio.sleep(5)
-                continue
-
-            for entry in batch:
-                lemma = entry.get("lemma", "")
-                dwds_pos = entry.get("pos", "")
-                art = entry.get("articles", [None])[0]
-                entry_type = entry.get("type", "")
-
-                if not lemma or not dwds_pos:
-                    continue
-
-                if lemma in seen:
-                    continue
-                seen.add(lemma)
-
-                pos = _normalize_pos(dwds_pos)
-
-                if _is_noise(lemma, pos):
-                    continue
-
-                # Skip obscure entries (not a proper dictionary article)
-                if "Basisartikel" not in entry_type and "Vollartikel" not in entry_type:
-                    continue
-
-                candidates.append(B2Candidate(lemma=lemma, pos=pos, article=art))
-
-                if len(candidates) % 50 == 0:
-                    logger.info(
-                        "progress: %d/%d candidates (attempts=%d)",
-                        len(candidates),
-                        target,
-                        attempts,
-                    )
-
-                if len(candidates) >= target:
-                    break
-
-    logger.info(
-        "collection done: %d candidates in %d attempts",
-        len(candidates),
-        attempts,
-    )
-    return candidates
-
-
-def persist(candidates: list[B2Candidate]) -> tuple[int, int]:
-    """Persist B2 words to DB. Returns (inserted, skipped)."""
+    goethe = _load_existing_goethe_lemmas()
     inserted = skipped = 0
     for cand in candidates:
+        if cand.lemma in goethe:
+            skipped += 1
+            continue
         with SessionLocal() as session:
             exists = session.execute(
                 text("SELECT id FROM words WHERE lemma = :lemma AND pos = :pos"),
@@ -205,9 +154,24 @@ def persist(candidates: list[B2Candidate]) -> tuple[int, int]:
                     article=cand.article if cand.pos == "noun" else None,
                     pos=cand.pos,
                     level="B2",
-                    source_ref="dwds:b2:random:v1",
+                    source_ref=source_ref,
                 )
             )
             session.commit()
             inserted += 1
+    logger.info("persist: %d inserted, %d skipped", inserted, skipped)
     return inserted, skipped
+
+
+# --- cleanup ----------------------------------------------------------------
+
+
+def clear_existing_b2() -> int:
+    """Delete all existing B2 words and their senses. Returns count deleted."""
+    init_db()
+    with SessionLocal() as session:
+        result = session.execute(text("DELETE FROM words WHERE level = 'B2'"))
+        session.commit()
+        count = result.rowcount
+        logger.info("deleted %d existing B2 words", count)
+        return count

@@ -431,25 +431,18 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_b2 = sub.add_parser(
         "b2-candidates",
-        help="collect ~1,000 B2 words via DWDS random API (dwdswb/random)",
+        help="seed B2 words from curated corpus-frequency CSV (deutsch-stat)",
     )
     p_b2.add_argument(
-        "--target",
-        type=int,
-        default=1000,
-        help="target B2 word count (default: 1000)",
+        "--csv",
+        type=str,
+        default=None,
+        help="path to B2 candidates CSV (default: ~/projects/deutsch-stat/outputs/b2_candidates_top1000.csv)",
     )
     p_b2.add_argument(
-        "--batch-size",
-        type=int,
-        default=5,
-        help="words per random API call (default: 5)",
-    )
-    p_b2.add_argument(
-        "--rate-limit",
-        type=float,
-        default=1.0,
-        help="seconds between API calls (default: 1.0)",
+        "--clear",
+        action="store_true",
+        help="delete existing B2 words before seeding",
     )
     return parser
 
@@ -487,17 +480,16 @@ def main(argv: list[str] | None = None) -> None:
         )
         print(f"enrich: {enriched} enriched, {failed} failed (no definition)")
     elif cmd == "b2-candidates":
-        from deutsch_haufig.ingest.b2 import generate_b2_candidates, persist  # noqa: PLC0415
+        from deutsch_haufig.ingest.b2 import clear_existing_b2, persist, read_candidates  # noqa: PLC0415
 
-        candidates = asyncio.run(
-            generate_b2_candidates(
-                target=args.target,
-                batch_size=args.batch_size,
-                rate_limit=args.rate_limit,
-            )
-        )
+        if args.clear:
+            deleted = clear_existing_b2()
+            print(f"b2-candidates: cleared {deleted} existing words")
+
+        csv_path = Path(args.csv) if args.csv else None
+        candidates = read_candidates(csv_path) if csv_path else read_candidates()
         ins, skip = persist(candidates)
-        print(f"b2-candidates: {len(candidates)} collected, {ins} inserted, {skip} skipped")
+        print(f"b2-candidates: {len(candidates)} loaded from CSV, {ins} inserted, {skip} skipped")
     else:  # pragma: no cover - argparse rejects unknowns
         raise SystemExit(f"unknown command: {cmd}")
 

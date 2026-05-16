@@ -1,64 +1,96 @@
 """Tests for the B2 candidate generator (``ingest/b2.py``).
 
-Tests only pure functions — no real HTTP calls to DWDS.
+Tests pure functions — no real HTTP calls or DB access (except ``persist``
+which needs a test DB).
 """
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from pathlib import Path
 
-import httpx
 import pytest
 
 from deutsch_haufig.ingest.b2 import (
     B2Candidate,
-    _is_noise,
-    _normalize_pos,
-    fetch_batch,
-    persist,
+    detect_pos,
+    read_candidates,
 )
 
 
-class TestNormalizePos:
-    def test_substantiv(self) -> None:
-        assert _normalize_pos("Substantiv") == "noun"
+class TestDetectPos:
+    def test_noun_uppercase(self) -> None:
+        assert detect_pos("Haus") == "noun"
+        assert detect_pos("Auto") == "noun"
 
-    def test_verb(self) -> None:
-        assert _normalize_pos("Verb") == "verb"
+    def test_verb_ieren(self) -> None:
+        assert detect_pos("studieren") == "verb"
+        assert detect_pos("reagieren") == "verb"
 
-    def test_adjektiv(self) -> None:
-        assert _normalize_pos("Adjektiv") == "adj"
+    def test_verb_en_suffix(self) -> None:
+        assert detect_pos("arbeiten") == "verb"
+        assert detect_pos("kochen") == "verb"
 
-    def test_adverb(self) -> None:
-        assert _normalize_pos("Adverb") == "adv"
+    def test_verb_eln_ern(self) -> None:
+        assert detect_pos("klingeln") == "verb"
+        assert detect_pos("verbessern") == "verb"
 
-    def test_unknown_pos(self) -> None:
-        assert _normalize_pos("FooBar") == "foobar"
+    def test_known_adverb(self) -> None:
+        assert detect_pos("sowie") == "adv"
+        assert detect_pos("dennoch") == "adv"
+        assert detect_pos("insbesondere") == "adv"
+
+    def test_known_preposition(self) -> None:
+        assert detect_pos("aufgrund") == "prep"
+        assert detect_pos("trotz") == "prep"
+
+    def test_known_conjunction(self) -> None:
+        assert detect_pos("bzw.") == "conj"
+        assert detect_pos("indem") == "conj"
+
+    def test_known_pronoun(self) -> None:
+        assert detect_pos("einiger") == "pron"
+        assert detect_pos("jener") == "pron"
+
+    def test_adj_fallback(self) -> None:
+        assert detect_pos("schön") == "adj"
+        assert detect_pos("groß") == "adj"
+
+    def test_empty_lemma(self) -> None:
+        assert detect_pos("") == "noun"
 
 
-class TestIsNoise:
-    def test_affix(self) -> None:
-        assert _is_noise("-abel", "affix") is True
+class TestReadCandidates:
+    def test_parses_csv(self, tmp_path: Path) -> None:
+        csv_file = tmp_path / "candidates.csv"
+        csv_file.write_text(
+            "lemma,is_title_case\n"
+            "Haus,true\n"
+            "arbeiten,false\n"
+            "schön,false\n"
+            "sowie,false\n"
+        )
+        candidates = read_candidates(csv_file)
+        assert len(candidates) == 4
+        assert candidates[0] == B2Candidate(lemma="Haus", pos="noun", is_title_case=True)
+        assert candidates[1] == B2Candidate(lemma="arbeiten", pos="verb", is_title_case=False)
+        assert candidates[2] == B2Candidate(lemma="schön", pos="adj", is_title_case=False)
+        assert candidates[3] == B2Candidate(lemma="sowie", pos="adv", is_title_case=False)
 
-    def test_symbol(self) -> None:
-        assert _is_noise("%", "symbol") is True
+    def test_deduplicates(self, tmp_path: Path) -> None:
+        csv_file = tmp_path / "candidates.csv"
+        csv_file.write_text("lemma\nHaus\nHaus\nAuto\n")
+        candidates = read_candidates(csv_file)
+        assert len(candidates) == 2
 
-    def test_phrase(self) -> None:
-        assert _is_noise("a cappella", "phrase") is True
+    def test_skips_empty_rows(self, tmp_path: Path) -> None:
+        csv_file = tmp_path / "candidates.csv"
+        csv_file.write_text("lemma\nHaus\n\nAuto\n")
+        candidates = read_candidates(csv_file)
+        assert len(candidates) == 2
 
-    def test_multiword_not_phrase(self) -> None:
-        assert _is_noise("a b", "noun") is True
-
-    def test_hyphen_start(self) -> None:
-        assert _is_noise("-abel", "noun") is True
-
-    def test_normal_word(self) -> None:
-        assert _is_noise("Haus", "noun") is False
-        assert _is_noise("geben", "verb") is False
-
-    def test_hyphen_end_is_ok(self) -> None:
-        # "Kaffee-Ersatz" style — but these have spaces usually
-        assert _is_noise("Kaffee-", "noun") is True
+    def test_raises_on_missing_file(self) -> None:
+        with pytest.raises(FileNotFoundError):
+            read_candidates(Path("/nonexistent/path.csv"))
 
 
 class TestB2Candidate:
@@ -67,47 +99,12 @@ class TestB2Candidate:
         assert c.lemma == "Auto"
         assert c.pos == "noun"
         assert c.article is None
+        assert c.is_title_case is False
 
     def test_with_article(self) -> None:
         c = B2Candidate(lemma="Haus", pos="noun", article="das")
         assert c.article == "das"
 
-
-class TestFetchBatch:
-    @pytest.mark.asyncio
-    async def test_returns_json_on_success(self) -> None:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = [{"lemma": "Test", "pos": "Substantiv"}]
-
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_resp)
-
-        result = await fetch_batch(mock_client, count=5)
-        assert result == [{"lemma": "Test", "pos": "Substantiv"}]
-
-    @pytest.mark.asyncio
-    async def test_returns_empty_on_non_200(self) -> None:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 429
-
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_resp)
-
-        result = await fetch_batch(mock_client, count=5)
-        assert result == []
-
-    @pytest.mark.asyncio
-    async def test_returns_empty_on_exception(self) -> None:
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(side_effect=httpx.HTTPError("boom"))
-
-        result = await fetch_batch(mock_client, count=5)
-        assert result == []
-
-
-class TestPersist:
-    def test_persist_empty(self) -> None:
-        ins, skip = persist([])
-        assert ins == 0
-        assert skip == 0
+    def test_with_title_case(self) -> None:
+        c = B2Candidate(lemma="Haus", pos="noun", is_title_case=True)
+        assert c.is_title_case is True

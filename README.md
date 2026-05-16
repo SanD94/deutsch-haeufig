@@ -53,7 +53,7 @@ See [PLAN.md](./PLAN.md) and [ROADMAP.md](./ROADMAP.md) for the full design.
 
 ## Data sources
 
-- **Word list**: [vocabeo.com](https://vocabeo.com/browse) — frequency-ranked German vocabulary (~6,260 words with metadata)
+- **Word list**: [DWDS Goethe word lists](https://www.dwds.de) — official Goethe-Zertifikat vocabulary (~3,300 A1–B1 words) plus a B2 expansion (~850 words via random sampling)
 - **Definitions & examples**: [DWDS](https://www.dwds.de) — Digitales Wörterbuch der deutschen Sprache
 
 ## License

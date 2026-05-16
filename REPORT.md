@@ -27,10 +27,10 @@
 - `$XDG_CACHE_HOME` for fixtures? Currently fixtures are in `tests/fixtures/dwds/corpus/` and `tests/fixtures/dwds/ipa/`. This is consistent with the existing `tests/fixtures/dwds/noun_haus.html` pattern.
 
 ## Goethe Seed (M1-DWDS runtime)
-- `uv run ingest goethe` failed on first run because vocabeo data has duplicate `(lemma, pos)` rows (e.g. `Band/noun` x3). `scalar_one_or_none()` threw `MultipleResultsFound`.
+- `uv run ingest goethe` failed on first run because old seed data had duplicate `(lemma, pos)` rows (e.g. `Band/noun` x3). `scalar_one_or_none()` threw `MultipleResultsFound`.
 - **Fix:** Added `.limit(1)` to the SELECT in `upsert_goethe_word()` — this is safe because any match is good enough for upsert.
-- After fix: 3305 Goethe words seeded (840 A1, 616 A2, 1849 B1), dupe count against vocabeo: 2270 skipped.
-- The old vocabeo words with the same lemma+pos keep their existing level (lowest is preserved).
+- After fix: 3305 Goethe words seeded (840 A1, 616 A2, 1849 B1), 2270 existing words skipped.
+- Existing words with the same lemma+pos keep their existing level (lowest is preserved).
 - **Bug:** `upsert_goethe_word()` unconditionally set `source_ref = entry.source_ref` even when keeping a lower level. E.g., `recht/adj` appeared in A2 + B1 — after A2 processed, it had `source_ref=dwds:goethe:A2`, then B1 overwrote to `dwds:goethe:B1` even though level stayed A2.
   - **Fix:** Guard with `if existing.level == entry.level or entry.level is None` — only update source_ref when the entry's level matches the kept level.
   - 56 mismatches in existing DB were manually corrected with a migration query.
